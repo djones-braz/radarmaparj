@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RadarMapa RJ - DER</title>
     
-    <!-- Tailwind CSS -->
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <!-- Tailwind CSS (Framework de Estilos) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -27,33 +27,30 @@
         }
     </script>
     
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
+    <!-- FontAwesome (Ícones) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="[https://unpkg.com/leaflet@1.9.4/dist/leaflet.css](https://unpkg.com/leaflet@1.9.4/dist/leaflet.css)" />
-    <script src="[https://unpkg.com/leaflet@1.9.4/dist/leaflet.js](https://unpkg.com/leaflet@1.9.4/dist/leaflet.js)"></script>
+    <!-- Leaflet CSS (Estilos base do Mapa) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- PapaParse para ler as Planilhas Google -->
-    <script src="[https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js](https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js)"></script>
-
-    <!-- Nosso CSS Customizado -->
-    <link rel="stylesheet" href="style.css">
+    <!-- O Nosso CSS Customizado -->
+    <link rel="stylesheet" href="estilo.css">
 </head>
 <body class="antialiased text-slate-800">
 
-    <!-- Ecrã de Carregamento -->
+    <!-- Ecrã de Carregamento (Overlay) -->
     <div id="loading-overlay" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="loader mb-4"></div>
         <h2 class="text-xl font-bold text-dark">RadarMapa RJ</h2>
-        <p class="text-secondary text-sm mt-2">Sincronizando dados do DER-RJ...</p>
+        <p class="text-secondary text-sm mt-2">A sincronizar dados do DER-RJ...</p>
     </div>
 
-    <!-- Container Principal do Mapa -->
+    <!-- Contentor Principal do Mapa -->
     <div class="relative w-full h-full">
+        <!-- Div onde o Leaflet irá injetar o mapa interativo -->
         <div id="map"></div>
 
-        <!-- Barra de Navegação Superior -->
+        <!-- Barra de Navegação Superior (Pesquisa) -->
         <header class="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-[1000] pointer-events-none">
             <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 pointer-events-auto shadow-lg">
                 <button class="w-10 h-10 rounded-xl hover:bg-slate-100/50 flex items-center justify-center text-secondary transition-colors" aria-label="Menu">
@@ -85,13 +82,13 @@
             </button>
         </div>
 
-        <!-- Painel de Filtros (Deslizante na base ou lado) -->
+        <!-- Painel de Filtros (Deslizante na base ou no lado) -->
         <aside id="filters-panel" class="fixed inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto md:w-96 bg-white z-[1001] rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none shadow-2xl transform translate-y-full md:translate-y-0 md:translate-x-full transition-transform duration-300 flex flex-col h-[75vh] md:h-full">
             
             <div class="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div>
                     <h3 class="text-xl font-bold text-dark">Filtros do Mapa</h3>
-                    <p class="text-sm text-secondary">Controlando <span id="total-radars-count" class="font-bold text-primary">0</span> radares</p>
+                    <p class="text-sm text-secondary">A controlar <span id="total-radars-count" class="font-bold text-primary">0</span> radares</p>
                 </div>
                 <button id="btn-close-filters" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                     <i class="fa-solid fa-xmark"></i>
@@ -99,7 +96,7 @@
             </div>
 
             <div class="p-6 overflow-y-auto no-scrollbar flex-1">
-                <!-- Toggle Master -->
+                <!-- Master Toggle -->
                 <div class="flex items-center justify-between mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <span class="font-semibold text-dark">Mostrar todos no mapa</span>
                     <label class="relative inline-flex items-center cursor-pointer">
@@ -117,7 +114,7 @@
                             <div class="w-10 h-10 rounded-full bg-danger/10 text-danger flex items-center justify-center text-lg"><i class="fa-solid fa-video"></i></div>
                             <div>
                                 <p class="font-semibold text-dark text-sm">Radar Fixo</p>
-                                <p class="text-xs text-secondary">Operando normalmente</p>
+                                <p class="text-xs text-secondary">A operar normalmente</p>
                             </div>
                         </div>
                         <input type="checkbox" class="radar-filter w-5 h-5 accent-primary rounded border-slate-300 text-primary focus:ring-primary" value="fixo-ativo" checked>
@@ -166,14 +163,18 @@
             </div>
         </aside>
 
-        <!-- Toast de Notificação -->
+        <!-- Toast de Notificação (Invisível por defeito) -->
         <div id="notification-toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-dark text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-[2000] opacity-0 pointer-events-none transition-opacity duration-300">
             <i id="toast-icon" class="fa-solid fa-circle-info text-primary"></i>
             <span id="toast-msg" class="text-sm font-medium">Notificação</span>
         </div>
     </div>
 
-    <!-- Nosso JavaScript Customizado -->
+    <!-- Scripts de Terceiros (Devem ser carregados antes do seu app.js) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- O Nosso JavaScript Customizado (Lógica do Mapa) -->
     <script src="app.js"></script>
 </body>
 </html>
