@@ -33,10 +33,9 @@
     <!-- Leaflet CSS (Estilos base do Mapa) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- O Nosso CSS Customizado -->
-    <link rel="stylesheet" href="estilo.css">
+    <!-- O Nosso CSS Customizado (Com ?v=3 para FORÇAR o GitHub a ignorar o Cache) -->
+    <link rel="stylesheet" href="estilo.css?v=3">
 </head>
-<!-- Adicionadas classes para garantir que o Body ocupa sempre 100% da tela -->
 <body class="antialiased text-slate-800 h-screen w-screen overflow-hidden bg-slate-100">
 
     <!-- Ecrã de Carregamento (Overlay) -->
@@ -47,10 +46,10 @@
         <p class="text-secondary text-sm mt-2">A sincronizar dados do DER-RJ...</p>
     </div>
 
-    <!-- Contentor Principal do Mapa (Garante a altura máxima) -->
+    <!-- Contentor Principal do Mapa -->
     <div class="relative w-full h-full">
-        <!-- Div onde o Leaflet irá injetar o mapa interativo. Classes 'absolute inset-0' forçam o preenchimento total -->
-        <div id="map" class="absolute inset-0 z-[1]"></div>
+        <!-- Div do Mapa com estilos inline reforçados para evitar a tela cinzenta -->
+        <div id="map" class="absolute inset-0 z-[1]" style="width: 100vw; height: 100vh;"></div>
 
         <!-- Barra de Navegação Superior (Pesquisa) -->
         <header class="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-[1000] pointer-events-none">
@@ -84,7 +83,7 @@
             </button>
         </div>
 
-        <!-- Painel de Filtros (Deslizante na base ou no lado) -->
+        <!-- Painel de Filtros -->
         <aside id="filters-panel" class="fixed inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto md:w-96 bg-white z-[1001] rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none shadow-2xl transform translate-y-full md:translate-y-0 md:translate-x-full transition-transform duration-300 flex flex-col h-[75vh] md:h-full">
             
             <div class="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
@@ -165,18 +164,18 @@
             </div>
         </aside>
 
-        <!-- Toast de Notificação (Invisível por defeito) -->
+        <!-- Toast de Notificação -->
         <div id="notification-toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-dark text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-[2000] opacity-0 pointer-events-none transition-opacity duration-300">
             <i id="toast-icon" class="fa-solid fa-circle-info text-primary"></i>
             <span id="toast-msg" class="text-sm font-medium">Notificação</span>
         </div>
     </div>
 
-    <!-- Scripts de Terceiros (Devem ser carregados antes do seu app.js) -->
+    <!-- Scripts de Terceiros -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- O Nosso JavaScript Customizado (Lógica do Mapa) -->
-    <script src="app.js"></script>
+    <!-- O Nosso JavaScript Customizado (Com ?v=3 para FORÇAR o GitHub a ignorar o Cache) -->
+    <script src="app.js?v=3"></script>
 </body>
 </html>
