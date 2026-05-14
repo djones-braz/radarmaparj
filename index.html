@@ -31,12 +31,20 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Leaflet CSS (Estilos base do Mapa) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
-    <!-- O Nosso CSS Customizado (Com ?v=3 para FORÇAR o GitHub a ignorar o Cache) -->
-    <link rel="stylesheet" href="estilo.css?v=3">
+    <!-- O Nosso CSS Customizado (Com ?v=4 para FORÇAR o GitHub a ignorar o Cache) -->
+    <link rel="stylesheet" href="estilo.css?v=4">
+
+    <!-- Proteção CSS para as imagens do Leaflet não colidirem com o Tailwind -->
+    <style>
+        .leaflet-container img.leaflet-tile {
+            max-width: none !important;
+            max-height: none !important;
+        }
+    </style>
 </head>
-<body class="antialiased text-slate-800 h-screen w-screen overflow-hidden bg-slate-100">
+<body class="antialiased text-slate-800 h-screen w-screen overflow-hidden bg-slate-200">
 
     <!-- Ecrã de Carregamento (Overlay) -->
     <div id="loading-overlay" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-opacity duration-500">
@@ -49,7 +57,7 @@
     <!-- Contentor Principal do Mapa -->
     <div class="relative w-full h-full">
         <!-- Div do Mapa com estilos inline reforçados para evitar a tela cinzenta -->
-        <div id="map" class="absolute inset-0 z-[1]" style="width: 100vw; height: 100vh;"></div>
+        <div id="map" class="absolute inset-0 z-[1]" style="width: 100vw; height: 100vh; background-color: #e5e7eb;"></div>
 
         <!-- Barra de Navegação Superior (Pesquisa) -->
         <header class="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-[1000] pointer-events-none">
@@ -77,7 +85,9 @@
             <button id="btn-center-map" class="w-12 h-12 glass-panel bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center text-dark shadow-lg hover:bg-slate-50 transition-colors border border-white/50" aria-label="Centrar Mapa">
                 <i class="fa-solid fa-location-crosshairs text-xl"></i>
             </button>
-            <button id="btn-toggle-filters" class="w-14 h-14 bg-dark text-white rounded-2xl flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all transform hover:scale-105 relative" aria-label="Filtros">
+            
+            <!-- PATCH: Adicionado onclick inline para garantir a abertura independente do app.js -->
+            <button id="btn-toggle-filters" onclick="document.getElementById('filters-panel').classList.toggle('translate-y-full'); document.getElementById('filters-panel').classList.toggle('md:translate-x-full');" class="w-14 h-14 bg-dark text-white rounded-2xl flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all transform hover:scale-105 relative" aria-label="Filtros">
                 <i class="fa-solid fa-layer-group text-xl"></i>
                 <span id="filter-badge" class="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">4</span>
             </button>
@@ -91,7 +101,8 @@
                     <h3 class="text-xl font-bold text-dark">Filtros do Mapa</h3>
                     <p class="text-sm text-secondary">A controlar <span id="total-radars-count" class="font-bold text-primary">0</span> radares</p>
                 </div>
-                <button id="btn-close-filters" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                <!-- PATCH: Fechar o painel de forma nativa -->
+                <button id="btn-close-filters" onclick="document.getElementById('filters-panel').classList.add('translate-y-full', 'md:translate-x-full');" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
@@ -172,10 +183,19 @@
     </div>
 
     <!-- Scripts de Terceiros -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- O Nosso JavaScript Customizado (Com ?v=3 para FORÇAR o GitHub a ignorar o Cache) -->
-    <script src="app.js?v=3"></script>
+    <!-- O Nosso JavaScript Customizado (Com ?v=4 para FORÇAR o GitHub a ignorar o Cache) -->
+    <script src="app.js?v=4"></script>
+
+    <!-- PATCH: Script de segurança para forçar o mapa a carregar os blocos cinzentos -->
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+            }, 1000);
+        });
+    </script>
 </body>
 </html>
