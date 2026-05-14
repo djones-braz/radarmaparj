@@ -36,23 +36,25 @@
     <!-- O Nosso CSS Customizado -->
     <link rel="stylesheet" href="estilo.css">
 </head>
-<body class="antialiased text-slate-800">
+<!-- Adicionadas classes para garantir que o Body ocupa sempre 100% da tela -->
+<body class="antialiased text-slate-800 h-screen w-screen overflow-hidden bg-slate-100">
 
     <!-- Ecrã de Carregamento (Overlay) -->
     <div id="loading-overlay" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="loader mb-4"></div>
+        <div class="loader mb-4" style="border: 4px solid #f3f4f6; border-top: 4px solid #2563eb; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
         <h2 class="text-xl font-bold text-dark">RadarMapa RJ</h2>
         <p class="text-secondary text-sm mt-2">A sincronizar dados do DER-RJ...</p>
     </div>
 
-    <!-- Contentor Principal do Mapa -->
+    <!-- Contentor Principal do Mapa (Garante a altura máxima) -->
     <div class="relative w-full h-full">
-        <!-- Div onde o Leaflet irá injetar o mapa interativo -->
-        <div id="map"></div>
+        <!-- Div onde o Leaflet irá injetar o mapa interativo. Classes 'absolute inset-0' forçam o preenchimento total -->
+        <div id="map" class="absolute inset-0 z-[1]"></div>
 
         <!-- Barra de Navegação Superior (Pesquisa) -->
         <header class="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-[1000] pointer-events-none">
-            <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 pointer-events-auto shadow-lg">
+            <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 pointer-events-auto shadow-lg bg-white/95 backdrop-blur-md border border-white/50">
                 <button class="w-10 h-10 rounded-xl hover:bg-slate-100/50 flex items-center justify-center text-secondary transition-colors" aria-label="Menu">
                     <i class="fa-solid fa-bars"></i>
                 </button>
@@ -73,7 +75,7 @@
 
         <!-- Botões de Ação Flutuantes (Canto Inferior Direito) -->
         <div class="absolute bottom-6 right-4 z-[1000] flex flex-col gap-3">
-            <button id="btn-center-map" class="w-12 h-12 glass-panel rounded-full flex items-center justify-center text-dark shadow-lg hover:bg-slate-50 transition-colors" aria-label="Centrar Mapa">
+            <button id="btn-center-map" class="w-12 h-12 glass-panel bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center text-dark shadow-lg hover:bg-slate-50 transition-colors border border-white/50" aria-label="Centrar Mapa">
                 <i class="fa-solid fa-location-crosshairs text-xl"></i>
             </button>
             <button id="btn-toggle-filters" class="w-14 h-14 bg-dark text-white rounded-2xl flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all transform hover:scale-105 relative" aria-label="Filtros">
@@ -95,7 +97,7 @@
                 </button>
             </div>
 
-            <div class="p-6 overflow-y-auto no-scrollbar flex-1">
+            <div class="p-6 overflow-y-auto overflow-x-hidden flex-1" style="scrollbar-width: none; -ms-overflow-style: none;">
                 <!-- Master Toggle -->
                 <div class="flex items-center justify-between mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
                     <span class="font-semibold text-dark">Mostrar todos no mapa</span>
