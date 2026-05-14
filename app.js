@@ -19,9 +19,9 @@ const UI = {
 };
 
 const CONFIG = {
-    // URLs vitais corrigidas: terminar com /export?format=csv para baixar os dados diretamente
-    SPREADSHEET_FIXOS: "[https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv](https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv)",
-    SPREADSHEET_PORTATEIS: "[https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv](https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv)",
+    // URLs vitais corrigidas: terminar com /export?format=csv para descarregar os dados diretamente
+    SPREADSHEET_FIXOS: "https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv",
+    SPREADSHEET_PORTATEIS: "https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv",
     MAP_CENTER: [-22.9068, -43.1729], // Rio de Janeiro
     MAP_ZOOM: 9
 };
@@ -60,7 +60,7 @@ function initUI() {
         let query = UI.searchInput.value.trim();
         if (!query) return;
 
-        showToast("Pesquisando local...", "info");
+        showToast("A pesquisar local...", "info");
         
         try {
             // Sistema de pesquisa aprimorado com Fallback (dupla tentativa)
@@ -89,7 +89,7 @@ function initUI() {
             }
         } catch (err) {
             console.error("Erro na pesquisa OSM:", err);
-            showToast("Erro ao comunicar com servidor de pesquisa.", "error");
+            showToast("Erro ao comunicar com o servidor de pesquisa.", "error");
         }
     });
 
@@ -159,17 +159,17 @@ function setupFiltersLogic() {
 function showToast(message, type = 'info') {
     UI.toastMsg.textContent = message;
     
-    // Icon handling
+    // Configuração do ícone
     UI.toastIcon.className = ''; 
     if (type === 'success') UI.toastIcon.className = 'fa-solid fa-circle-check text-success';
     else if (type === 'error') UI.toastIcon.className = 'fa-solid fa-triangle-exclamation text-danger';
     else UI.toastIcon.className = 'fa-solid fa-circle-info text-primary';
 
-    // Show
+    // Mostrar
     UI.toast.classList.remove('opacity-0');
     UI.toast.classList.add('opacity-100');
 
-    // Hide after 3s
+    // Esconder após 3s
     clearTimeout(AppState.toastTimeout);
     AppState.toastTimeout = setTimeout(() => {
         UI.toast.classList.remove('opacity-100');
@@ -192,8 +192,8 @@ function initMap() {
     L.control.zoom({ position: 'bottomleft' }).addTo(AppState.map);
 
     // Definir Camada de Mosaicos (Tiles Gratuitos Oficiais do OpenStreetMap)
-    L.tileLayer('[https://tile.openstreetmap.org/](https://tile.openstreetmap.org/){z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="[https://www.openstreetmap.org/copyright](https://www.openstreetmap.org/copyright)">OpenStreetMap</a> contributors',
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
     }).addTo(AppState.map);
 
@@ -267,7 +267,7 @@ function fetchCSV(url, defaultType) {
 }
 
 function processMapMarkers(dataArray) {
-    // Limpar marcadores existentes se estiver recarregando
+    // Limpar marcadores existentes se estiver a recarregar
     for (let key in AppState.layerGroups) {
         AppState.layerGroups[key].clearLayers();
     }
@@ -315,7 +315,7 @@ function processMapMarkers(dataArray) {
             popupAnchor: [0, -19]
         });
 
-        // Construção de Conteúdo do Popup
+        // Construção do Conteúdo do Popup
         const rodoviaBase = radar.rodovia || 'Via não identificada';
         const km = radar.km !== undefined ? ` - KM ${radar.km}` : '';
         const rodovia = `${rodoviaBase}${km}`;
@@ -326,7 +326,7 @@ function processMapMarkers(dataArray) {
         const tipoText = tipo === 'fixo' ? 'Radar Fixo' : 'Radar Portátil';
         
         const statusConfig = status === 'ativo' 
-            ? { color: 'text-success', bg: 'bg-success/10', icon: 'fa-check-circle', text: 'Operando' }
+            ? { color: 'text-success', bg: 'bg-success/10', icon: 'fa-check-circle', text: 'A operar' }
             : { color: 'text-slate-500', bg: 'bg-slate-100', icon: 'fa-power-off', text: 'Inativo' };
 
         const popupHtml = `
@@ -370,7 +370,7 @@ function processMapMarkers(dataArray) {
     // Aviso caso a folha não tenha coordenadas
     if (plottedCount === 0 && missingCoordsCount > 0) {
         setTimeout(() => {
-            showToast(`Atenção: Faltam as colunas LAT e LNG na planilha!`, "error");
+            showToast(`Atenção: Faltam as colunas LAT e LNG na folha!`, "error");
         }, 4500);
     }
     
