@@ -33,8 +33,8 @@
     <!-- Leaflet CSS (Estilos base do Mapa) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
-    <!-- O Nosso CSS Customizado (Com ?v=4 para FORÇAR o GitHub a ignorar o Cache) -->
-    <link rel="stylesheet" href="estilo.css?v=4">
+    <!-- O Nosso CSS Customizado (Atualizado para v5 para QUEBRAR o Cache) -->
+    <link rel="stylesheet" href="estilo.css?v=5">
 
     <!-- Proteção CSS para as imagens do Leaflet não colidirem com o Tailwind -->
     <style>
@@ -56,8 +56,8 @@
 
     <!-- Contentor Principal do Mapa -->
     <div class="relative w-full h-full">
-        <!-- Div do Mapa com estilos inline reforçados para evitar a tela cinzenta -->
-        <div id="map" class="absolute inset-0 z-[1]" style="width: 100vw; height: 100vh; background-color: #e5e7eb;"></div>
+        <!-- Div do Mapa -->
+        <div id="map" class="absolute inset-0 z-[1]" style="width: 100vw; height: 100vh;"></div>
 
         <!-- Barra de Navegação Superior (Pesquisa) -->
         <header class="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-[1000] pointer-events-none">
@@ -86,7 +86,6 @@
                 <i class="fa-solid fa-location-crosshairs text-xl"></i>
             </button>
             
-            <!-- PATCH: Adicionado onclick inline para garantir a abertura independente do app.js -->
             <button id="btn-toggle-filters" onclick="document.getElementById('filters-panel').classList.toggle('translate-y-full'); document.getElementById('filters-panel').classList.toggle('md:translate-x-full');" class="w-14 h-14 bg-dark text-white rounded-2xl flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all transform hover:scale-105 relative" aria-label="Filtros">
                 <i class="fa-solid fa-layer-group text-xl"></i>
                 <span id="filter-badge" class="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">4</span>
@@ -101,7 +100,6 @@
                     <h3 class="text-xl font-bold text-dark">Filtros do Mapa</h3>
                     <p class="text-sm text-secondary">A controlar <span id="total-radars-count" class="font-bold text-primary">0</span> radares</p>
                 </div>
-                <!-- PATCH: Fechar o painel de forma nativa -->
                 <button id="btn-close-filters" onclick="document.getElementById('filters-panel').classList.add('translate-y-full', 'md:translate-x-full');" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
@@ -186,15 +184,22 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- O Nosso JavaScript Customizado (Com ?v=4 para FORÇAR o GitHub a ignorar o Cache) -->
-    <script src="app.js?v=4"></script>
+    <!-- O Nosso JavaScript Customizado (Atualizado para v5 para QUEBRAR o Cache) -->
+    <script src="app.js?v=5"></script>
 
-    <!-- PATCH: Script de segurança para forçar o mapa a carregar os blocos cinzentos -->
+    <!-- MEGA PATCH: Motor contínuo para curar a "tela cinzenta" do Leaflet -->
     <script>
         window.addEventListener('load', function() {
-            setTimeout(function() {
+            // Tenta redimensionar a cada 300ms durante os primeiros 4 segundos para garantir que o mapa acorda
+            let attempts = 0;
+            let interval = setInterval(function() {
                 window.dispatchEvent(new Event('resize'));
-            }, 1000);
+                if (typeof AppState !== 'undefined' && AppState.map) {
+                    AppState.map.invalidateSize();
+                }
+                attempts++;
+                if (attempts > 12) clearInterval(interval);
+            }, 300);
         });
     </script>
 </body>
