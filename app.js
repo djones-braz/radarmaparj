@@ -19,9 +19,9 @@ const UI = {
 };
 
 const CONFIG = {
-    // URLs vitais corrigidas: terminar com /export?format=csv para descarregar os dados diretamente
-    SPREADSHEET_FIXOS: "https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv",
-    SPREADSHEET_PORTATEIS: "https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv",
+    // URLs vitais corrigidas: terminar com /export?format=csv para baixar os dados diretamente
+    SPREADSHEET_FIXOS: "[https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv](https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv)",
+    SPREADSHEET_PORTATEIS: "[https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv](https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv)",
     MAP_CENTER: [-22.9068, -43.1729], // Rio de Janeiro
     MAP_ZOOM: 9
 };
@@ -60,7 +60,7 @@ function initUI() {
         let query = UI.searchInput.value.trim();
         if (!query) return;
 
-        showToast("A pesquisar local...", "info");
+        showToast("Buscando local...", "info");
         
         try {
             // Sistema de pesquisa aprimorado com Fallback (dupla tentativa)
@@ -192,8 +192,8 @@ function initMap() {
     L.control.zoom({ position: 'bottomleft' }).addTo(AppState.map);
 
     // Definir Camada de Mosaicos (Tiles Gratuitos Oficiais do OpenStreetMap)
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    L.tileLayer('[https://tile.openstreetmap.org/](https://tile.openstreetmap.org/){z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="[https://www.openstreetmap.org/copyright](https://www.openstreetmap.org/copyright)">OpenStreetMap</a> contributors',
         maxZoom: 19
     }).addTo(AppState.map);
 
@@ -218,13 +218,15 @@ async function fetchAndPlotData() {
         const validPointsCount = processMapMarkers(allData);
         
         // Atualizar Interface
-        UI.totalCountSpan.textContent = validPointsCount;
+        if (UI.totalCountSpan) {
+            UI.totalCountSpan.textContent = validPointsCount;
+        }
 
         setTimeout(removeLoadingScreen, 800);
 
     } catch (error) {
         console.error("Erro fatal ao carregar dados:", error);
-        showToast("Erro ao ligar ao Google Sheets", "error");
+        showToast("Erro ao conectar com o Google Sheets", "error");
         removeLoadingScreen();
     }
 }
@@ -326,7 +328,7 @@ function processMapMarkers(dataArray) {
         const tipoText = tipo === 'fixo' ? 'Radar Fixo' : 'Radar Portátil';
         
         const statusConfig = status === 'ativo' 
-            ? { color: 'text-success', bg: 'bg-success/10', icon: 'fa-check-circle', text: 'A operar' }
+            ? { color: 'text-success', bg: 'bg-success/10', icon: 'fa-check-circle', text: 'Operando' }
             : { color: 'text-slate-500', bg: 'bg-slate-100', icon: 'fa-power-off', text: 'Inativo' };
 
         const popupHtml = `
@@ -367,10 +369,10 @@ function processMapMarkers(dataArray) {
         }
     });
     
-    // Aviso caso a folha não tenha coordenadas
+    // Aviso caso a planilha não tenha coordenadas
     if (plottedCount === 0 && missingCoordsCount > 0) {
         setTimeout(() => {
-            showToast(`Atenção: Faltam as colunas LAT e LNG na folha!`, "error");
+            showToast(`Atenção: Faltam as colunas LAT e LNG na planilha!`, "error");
         }, 4500);
     }
     
@@ -378,16 +380,41 @@ function processMapMarkers(dataArray) {
 }
 
 function removeLoadingScreen() {
-    UI.loadingOverlay.classList.add('opacity-0');
-    setTimeout(() => {
-        UI.loadingOverlay.style.display = 'none';
-    }, 500);
+    if (UI.loadingOverlay) {
+        UI.loadingOverlay.classList.add('opacity-0');
+        setTimeout(() => {
+            UI.loadingOverlay.style.display = 'none';
+        }, 500);
+    }
 }
 
 // ==========================================
-// INICIALIZAÇÃO
+// INICIALIZAÇÃO E SISTEMA ANTI-FALHA
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // FAIL-SAFE: Verifica se as bibliotecas externas (Leaflet, PapaParse) carregaram corretamente
+    if (typeof L === 'undefined' || typeof Papa === 'undefined') {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.innerHTML = `
+                <div style="background: #fee2e2; border: 2px solid #ef4444; border-radius: 12px; padding: 24px; text-align: center; max-width: 400px; color: #991b1b; font-family: sans-serif; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+                    <h2 style="margin-top: 0; font-size: 1.25rem; font-weight: bold;">Erro Estrutural Detectado</h2>
+                    <p style="font-size: 0.875rem; margin-bottom: 16px;">O navegador não conseguiu carregar as bibliotecas do mapa.</p>
+                    <ul style="text-align: left; font-size: 0.875rem; margin: 0; padding-left: 20px;">
+                        <li style="margin-bottom: 8px;">Verifique no GitHub se o arquivo <b>index.html</b> não possui sinais de formatação como crases (<b>\`\`\`</b>) vazadas no código.</li>
+                        <li>Confira se a tag do CSS está puxando o nome correto que você salvou no repositório (ex: <b>estilo.css</b> ou <b>style.css</b>).</li>
+                    </ul>
+                </div>
+            `;
+            // Remove a classe do loader que fica rodando e mostra o erro
+            const loaderDiv = overlay.querySelector('.loader');
+            if (loaderDiv) loaderDiv.style.display = 'none';
+        }
+        return; // Interrompe a execução para não quebrar a página toda
+    }
+
+    // Se tudo estiver certo, inicializa o App
     initUI();
     initMap();
     fetchAndPlotData();
