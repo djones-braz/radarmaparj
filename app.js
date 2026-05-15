@@ -19,9 +19,9 @@ const UI = {
 };
 
 const CONFIG = {
-    // URLs vitais corrigidas: terminar com /export?format=csv para baixar os dados diretamente
-    SPREADSHEET_FIXOS: "[https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv](https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv)",
-    SPREADSHEET_PORTATEIS: "[https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv](https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv)",
+    // ATUALIZAÇÃO CRUCIAL: Usando a API de Visualização do Google (gviz) que é à prova de bloqueios para planilhas públicas
+    SPREADSHEET_FIXOS: "https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/gviz/tq?tqx=out:csv",
+    SPREADSHEET_PORTATEIS: "https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/gviz/tq?tqx=out:csv",
     MAP_CENTER: [-22.9068, -43.1729], // Rio de Janeiro
     MAP_ZOOM: 9
 };
@@ -43,18 +43,15 @@ const AppState = {
 // ==========================================
 
 function initUI() {
-    // Alternar o painel
     UI.btnToggleFilters.addEventListener('click', toggleFiltersPanel);
     UI.btnCloseFilters.addEventListener('click', toggleFiltersPanel);
     
-    // Ações do Mapa
     UI.btnCenterMap.addEventListener('click', () => {
         if (AppState.map) {
             AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM, { animate: true, duration: 1 });
         }
     });
 
-    // Lógica de pesquisa usando a API Nominatim do OpenStreetMap
     UI.searchForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         let query = UI.searchInput.value.trim();
@@ -63,13 +60,10 @@ function initUI() {
         showToast("Buscando local...", "info");
         
         try {
-            // Sistema de pesquisa aprimorado com Fallback (dupla tentativa)
-            // Tentativa 1: Pesquisa inicial com foco no viewbox do RJ
             let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&viewbox=-45.0,-20.0,-40.0,-24.0&bounded=0&limit=1`;
             let response = await fetch(url);
             let data = await response.json();
 
-            // Tentativa 2: Se falhar, pesquisa mais flexível sem os limites estritos do viewbox
             if (!data || data.length === 0) {
                 url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Rio de Janeiro')}&countrycodes=br&limit=1`;
                 response = await fetch(url);
@@ -79,7 +73,6 @@ function initUI() {
             if (data && data.length > 0) {
                 const lat = parseFloat(data[0].lat);
                 const lon = parseFloat(data[0].lon);
-                // Ajusta o zoom dependendo do tipo de resultado (endereço vs cidade)
                 const zoomLevel = data[0].class === 'highway' || data[0].class === 'building' ? 17 : 14;
                 
                 AppState.map.setView([lat, lon], zoomLevel, { animate: true, duration: 1.5 });
@@ -93,26 +86,15 @@ function initUI() {
         }
     });
 
-    // Lógica de configuração dos filtros
     setupFiltersLogic();
 }
 
 function toggleFiltersPanel() {
     AppState.isPanelOpen = !AppState.isPanelOpen;
     if (AppState.isPanelOpen) {
-        // Abre painel
-        if (window.innerWidth < 768) {
-            UI.filtersPanel.classList.remove('translate-y-full');
-        } else {
-            UI.filtersPanel.classList.remove('translate-x-full');
-        }
+        UI.filtersPanel.classList.remove('translate-y-full', 'md:translate-x-full');
     } else {
-        // Fecha painel
-        if (window.innerWidth < 768) {
-            UI.filtersPanel.classList.add('translate-y-full');
-        } else {
-            UI.filtersPanel.classList.add('translate-x-full');
-        }
+        UI.filtersPanel.classList.add('translate-y-full', 'md:translate-x-full');
     }
 }
 
@@ -132,21 +114,17 @@ function setupFiltersLogic() {
             }
         });
 
-        // Atualizar o emblema (badge) visual
         UI.filterBadge.textContent = activeCount;
         if (activeCount === 0) UI.filterBadge.classList.add('hidden');
         else UI.filterBadge.classList.remove('hidden');
 
-        // Atualizar o botão "Mostrar todos" para sincronizar com os individuais
         UI.filterAllToggle.checked = (activeCount === UI.filterCheckboxes.length);
     };
 
-    // Ouvintes das Checkboxes
     UI.filterCheckboxes.forEach(cb => {
         cb.addEventListener('change', updateMapLayers);
     });
 
-    // Ouvinte do Master Toggle
     UI.filterAllToggle.addEventListener('change', (e) => {
         const isChecked = e.target.checked;
         UI.filterCheckboxes.forEach(cb => {
@@ -159,17 +137,14 @@ function setupFiltersLogic() {
 function showToast(message, type = 'info') {
     UI.toastMsg.textContent = message;
     
-    // Configuração do ícone
     UI.toastIcon.className = ''; 
     if (type === 'success') UI.toastIcon.className = 'fa-solid fa-circle-check text-success';
     else if (type === 'error') UI.toastIcon.className = 'fa-solid fa-triangle-exclamation text-danger';
     else UI.toastIcon.className = 'fa-solid fa-circle-info text-primary';
 
-    // Mostrar
     UI.toast.classList.remove('opacity-0');
     UI.toast.classList.add('opacity-100');
 
-    // Esconder após 3s
     clearTimeout(AppState.toastTimeout);
     AppState.toastTimeout = setTimeout(() => {
         UI.toast.classList.remove('opacity-100');
@@ -182,22 +157,18 @@ function showToast(message, type = 'info') {
 // ==========================================
 
 function initMap() {
-    // Evitar que o mapa capture eventos de scroll ao interagir com o painel
     AppState.map = L.map('map', { 
         zoomControl: false,
-        tap: false // Previne eventos de clique duplicados em navegadores móveis
+        tap: false
     }).setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
     
-    // Adicionar controlo de Zoom numa posição melhor
     L.control.zoom({ position: 'bottomleft' }).addTo(AppState.map);
 
-    // Definir Camada de Mosaicos (Tiles Gratuitos Oficiais do OpenStreetMap)
-    L.tileLayer('[https://tile.openstreetmap.org/](https://tile.openstreetmap.org/){z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="[https://www.openstreetmap.org/copyright](https://www.openstreetmap.org/copyright)">OpenStreetMap</a> contributors',
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
     }).addTo(AppState.map);
 
-    // Adicionar os nossos LayerGroups vazios ao mapa inicialmente
     for (let key in AppState.layerGroups) {
         AppState.layerGroups[key].addTo(AppState.map);
     }
@@ -205,71 +176,79 @@ function initMap() {
 
 async function fetchAndPlotData() {
     try {
-        // Executar ambas as requisições em paralelo
+        // Busca os dados das planilhas de forma robusta
         const [fixosData, portateisData] = await Promise.all([
             fetchCSV(CONFIG.SPREADSHEET_FIXOS, 'fixo'),
             fetchCSV(CONFIG.SPREADSHEET_PORTATEIS, 'portatil')
         ]);
 
-        // Combinar dados das duas planilhas
         const allData = [...fixosData, ...portateisData];
-        
-        // Processar e colocar no mapa
         const validPointsCount = processMapMarkers(allData);
         
-        // Atualizar Interface
         if (UI.totalCountSpan) {
             UI.totalCountSpan.textContent = validPointsCount;
+        }
+
+        // Força a atualização visual do mapa depois que os dados carregam
+        if (AppState.map) {
+            AppState.map.invalidateSize();
         }
 
         setTimeout(removeLoadingScreen, 800);
 
     } catch (error) {
         console.error("Erro fatal ao carregar dados:", error);
-        showToast("Erro ao conectar com o Google Sheets", "error");
+        showToast("Erro de rede ao conectar com as Planilhas", "error");
         removeLoadingScreen();
     }
 }
 
-function fetchCSV(url, defaultType) {
-    return new Promise((resolve, reject) => {
-        Papa.parse(url, {
-            download: true,
-            header: true,
-            dynamicTyping: true, // Auto converter números
-            skipEmptyLines: true,
-            complete: function(results) {
-                // Verificar se o Google retornou uma página HTML de login em vez de CSV (Erro de planilha privada)
-                if (results.data.length > 0 && typeof results.data[0] === 'string' && results.data[0].includes('<!DOCTYPE html>')) {
-                    console.warn(`Acesso negado à planilha de ${defaultType}s.`);
-                    resolve([]); // Retorna array vazio para não quebrar a Promise.all
-                    return;
-                }
-                
-                // Normaliza as chaves (colunas) para evitar erros de digitação na planilha
-                const cleanData = results.data.map(row => {
-                    const normalized = { tipo_origem: defaultType };
-                    for (let key in row) {
-                        if (row.hasOwnProperty(key) && key) {
-                            // Limpa a chave: minúscula, sem acentos, sem espaços nas bordas
-                            const cleanKey = String(key).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
-                            normalized[cleanKey] = row[key];
+// NOVA FUNÇÃO DE DOWNLOAD: Muito mais robusta, usa o 'fetch' nativo antes de passar para o PapaParse
+async function fetchCSV(url, defaultType) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("HTTP error " + response.status);
+        
+        const csvText = await response.text();
+
+        // Se o Google enviou uma página de erro/login HTML ao invés do CSV
+        if (csvText.trim().toLowerCase().startsWith('<!doctype html>') || csvText.includes('<html')) {
+            console.warn(`Acesso negado ou redirecionamento na planilha de ${defaultType}s.`);
+            return [];
+        }
+
+        return new Promise((resolve) => {
+            Papa.parse(csvText, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const cleanData = results.data.map(row => {
+                        const normalized = { tipo_origem: defaultType };
+                        for (let key in row) {
+                            if (row.hasOwnProperty(key) && key) {
+                                // Limpeza pesada de cabeçalhos
+                                const cleanKey = String(key).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
+                                normalized[cleanKey] = row[key];
+                            }
                         }
-                    }
-                    return normalized;
-                });
-                resolve(cleanData);
-            },
-            error: function(error) {
-                console.error(`Erro PapaParse em ${defaultType}:`, error);
-                resolve([]); // Falhar graciosamente
-            }
+                        return normalized;
+                    });
+                    resolve(cleanData);
+                },
+                error: function(error) {
+                    console.error(`Erro PapaParse:`, error);
+                    resolve([]);
+                }
+            });
         });
-    });
+    } catch (e) {
+        console.error(`Erro ao baixar a planilha ${defaultType}:`, e);
+        return [];
+    }
 }
 
 function processMapMarkers(dataArray) {
-    // Limpar marcadores existentes se estiver a recarregar
     for (let key in AppState.layerGroups) {
         AppState.layerGroups[key].clearLayers();
     }
@@ -278,11 +257,9 @@ function processMapMarkers(dataArray) {
     let missingCoordsCount = 0;
 
     dataArray.forEach(radar => {
-        // Procura flexível pelas colunas de coordenadas (aceita lat, latitude, y, etc)
         const latRaw = radar.lat || radar.latitude || radar.y;
         const lngRaw = radar.lng || radar.lon || radar.longitude || radar.x || radar.long;
 
-        // Analisar coordenadas com segurança (lidando com decimais em vírgula ou ponto)
         const latStr = latRaw !== undefined && latRaw !== null ? String(latRaw).replace(',', '.') : null;
         const lngStr = lngRaw !== undefined && lngRaw !== null ? String(lngRaw).replace(',', '.') : null;
         
@@ -291,21 +268,16 @@ function processMapMarkers(dataArray) {
 
         if (isNaN(lat) || isNaN(lng)) {
             missingCoordsCount++;
-            return; // Ignorar linhas inválidas (coordenadas ausentes)
+            return;
         }
         
         plottedCount++;
 
-        // Determinar classificação baseada nos dados
-        const tipo = radar.tipo_origem || 'fixo'; // Vem do defaultType no fetchCSV
-        
-        // Status vem da coluna STATUS ("Radar Inativo", "Radar Ativo", etc)
+        const tipo = radar.tipo_origem || 'fixo';
         const isInativo = String(radar.status || '').toLowerCase().includes('inativo');
         const status = isInativo ? 'inativo' : 'ativo';
-        
         const categoryKey = `${tipo}-${status}`;
 
-        // Parâmetros de Design
         const iconClass = tipo === 'fixo' ? 'fa-video' : 'fa-camera';
         const styleClass = `radar-${tipo} ${status}`;
 
@@ -317,14 +289,12 @@ function processMapMarkers(dataArray) {
             popupAnchor: [0, -19]
         });
 
-        // Construção do Conteúdo do Popup
         const rodoviaBase = radar.rodovia || 'Via não identificada';
         const km = radar.km !== undefined ? ` - KM ${radar.km}` : '';
         const rodovia = `${rodoviaBase}${km}`;
         
         const localidade = radar.localidade || radar.local || radar.municipio || 'Local não informado';
         const limite = radar.velocidadedefiscalizacao || radar.limite || '--';
-        
         const tipoText = tipo === 'fixo' ? 'Radar Fixo' : 'Radar Portátil';
         
         const statusConfig = status === 'ativo' 
@@ -360,7 +330,6 @@ function processMapMarkers(dataArray) {
             </div>
         `;
 
-        // Adicionar ao Leaflet
         const marker = L.marker([lat, lng], { icon: customIcon })
                         .bindPopup(popupHtml, { closeButton: false, className: 'modern-popup' });
         
@@ -369,10 +338,9 @@ function processMapMarkers(dataArray) {
         }
     });
     
-    // Aviso caso a planilha não tenha coordenadas
     if (plottedCount === 0 && missingCoordsCount > 0) {
         setTimeout(() => {
-            showToast(`Atenção: Faltam as colunas LAT e LNG na planilha!`, "error");
+            showToast(`Atenção: Nenhum radar com coordenadas válidas encontrado.`, "error");
         }, 4500);
     }
     
@@ -389,11 +357,9 @@ function removeLoadingScreen() {
 }
 
 // ==========================================
-// INICIALIZAÇÃO E SISTEMA ANTI-FALHA
+// INICIALIZAÇÃO
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // FAIL-SAFE: Verifica se as bibliotecas externas (Leaflet, PapaParse) carregaram corretamente
     if (typeof L === 'undefined' || typeof Papa === 'undefined') {
         const overlay = document.getElementById('loading-overlay');
         if (overlay) {
@@ -401,20 +367,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="background: #fee2e2; border: 2px solid #ef4444; border-radius: 12px; padding: 24px; text-align: center; max-width: 400px; color: #991b1b; font-family: sans-serif; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
                     <h2 style="margin-top: 0; font-size: 1.25rem; font-weight: bold;">Erro Estrutural Detectado</h2>
                     <p style="font-size: 0.875rem; margin-bottom: 16px;">O navegador não conseguiu carregar as bibliotecas do mapa.</p>
-                    <ul style="text-align: left; font-size: 0.875rem; margin: 0; padding-left: 20px;">
-                        <li style="margin-bottom: 8px;">Verifique no GitHub se o arquivo <b>index.html</b> não possui sinais de formatação como crases (<b>\`\`\`</b>) vazadas no código.</li>
-                        <li>Confira se a tag do CSS está puxando o nome correto que você salvou no repositório (ex: <b>estilo.css</b> ou <b>style.css</b>).</li>
-                    </ul>
                 </div>
             `;
-            // Remove a classe do loader que fica rodando e mostra o erro
             const loaderDiv = overlay.querySelector('.loader');
             if (loaderDiv) loaderDiv.style.display = 'none';
         }
-        return; // Interrompe a execução para não quebrar a página toda
+        return;
     }
 
-    // Se tudo estiver certo, inicializa o App
     initUI();
     initMap();
     fetchAndPlotData();
