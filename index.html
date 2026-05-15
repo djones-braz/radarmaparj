@@ -30,11 +30,11 @@
     <!-- FontAwesome (Ícones) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Leaflet CSS (Estilos base do Mapa) -->
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
-    <!-- O Nosso CSS Customizado (Atualizado para v5 para QUEBRAR o Cache) -->
-    <link rel="stylesheet" href="estilo.css?v=5">
+    <!-- O Nosso CSS Customizado (Com ?v=6 para FORÇAR o GitHub a ignorar o Cache) -->
+    <link rel="stylesheet" href="estilo.css?v=6">
 
     <!-- Proteção CSS para as imagens do Leaflet não colidirem com o Tailwind -->
     <style>
@@ -46,7 +46,7 @@
 </head>
 <body class="antialiased text-slate-800 h-screen w-screen overflow-hidden bg-slate-200">
 
-    <!-- Ecrã de Carregamento (Overlay) -->
+    <!-- Ecrã de Carregamento -->
     <div id="loading-overlay" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="loader mb-4" style="border: 4px solid #f3f4f6; border-top: 4px solid #2563eb; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
         <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
@@ -56,8 +56,7 @@
 
     <!-- Contentor Principal do Mapa -->
     <div class="relative w-full h-full">
-        <!-- Div do Mapa -->
-        <div id="map" class="absolute inset-0 z-[1]" style="width: 100vw; height: 100vh;"></div>
+        <div id="map" class="absolute inset-0 z-[1]" style="width: 100vw; height: 100vh; background-color: #e5e7eb;"></div>
 
         <!-- Barra de Navegação Superior (Pesquisa) -->
         <header class="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-[1000] pointer-events-none">
@@ -93,12 +92,12 @@
         </div>
 
         <!-- Painel de Filtros -->
-        <aside id="filters-panel" class="fixed inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto md:w-96 bg-white z-[1001] rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none shadow-2xl transform translate-y-full md:translate-y-0 md:translate-x-full transition-transform duration-300 flex flex-col h-[75vh] md:h-full">
+        <aside id="filters-panel" class="fixed inset-x-0 bottom-0 md:inset-y-0 md:right-0 md:left-auto md:w-96 bg-white z-[1001] rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none shadow-2xl transform translate-y-full md:translate-y-0 md:translate-x-full transition-transform duration-300 flex flex-col h-[85vh] md:h-full">
             
             <div class="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div>
                     <h3 class="text-xl font-bold text-dark">Filtros do Mapa</h3>
-                    <p class="text-sm text-secondary">A controlar <span id="total-radars-count" class="font-bold text-primary">0</span> radares</p>
+                    <p class="text-sm text-secondary">A exibir <span id="total-radars-count" class="font-bold text-primary">0</span> radares</p>
                 </div>
                 <button id="btn-close-filters" onclick="document.getElementById('filters-panel').classList.add('translate-y-full', 'md:translate-x-full');" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                     <i class="fa-solid fa-xmark"></i>
@@ -106,9 +105,27 @@
             </div>
 
             <div class="p-6 overflow-y-auto overflow-x-hidden flex-1" style="scrollbar-width: none; -ms-overflow-style: none;">
+                
+                <!-- NOVOS FILTROS DE LOCALIZAÇÃO -->
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Localização (Dinâmico)</h4>
+                <div class="space-y-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div>
+                        <label for="filter-city" class="block text-xs font-semibold text-secondary mb-1">Filtrar por Cidade</label>
+                        <select id="filter-city" class="w-full bg-white border border-slate-200 text-dark text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 transition-colors cursor-pointer outline-none">
+                            <option value="all">Todas as Cidades</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-highway" class="block text-xs font-semibold text-secondary mb-1">Filtrar por Rodovia</label>
+                        <select id="filter-highway" class="w-full bg-white border border-slate-200 text-dark text-sm rounded-lg focus:ring-primary focus:border-primary block p-2 transition-colors cursor-pointer outline-none">
+                            <option value="all">Todas as Rodovias</option>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Master Toggle -->
-                <div class="flex items-center justify-between mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                    <span class="font-semibold text-dark">Mostrar todos no mapa</span>
+                <div class="flex items-center justify-between mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span class="font-semibold text-dark">Mostrar categorias ativas</span>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="filter-all" class="sr-only peer" checked>
                         <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -180,17 +197,15 @@
         </div>
     </div>
 
-    <!-- Scripts de Terceiros -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- O Nosso JavaScript Customizado (Atualizado para v5 para QUEBRAR o Cache) -->
-    <script src="app.js?v=5"></script>
+    <!-- O Nosso JavaScript Customizado (v6) -->
+    <script src="app.js?v=6"></script>
 
-    <!-- MEGA PATCH: Motor contínuo para curar a "tela cinzenta" do Leaflet -->
+    <!-- MEGA PATCH: Motor para a "tela cinzenta" do Leaflet -->
     <script>
         window.addEventListener('load', function() {
-            // Tenta redimensionar a cada 300ms durante os primeiros 4 segundos para garantir que o mapa acorda
             let attempts = 0;
             let interval = setInterval(function() {
                 window.dispatchEvent(new Event('resize'));
