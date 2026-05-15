@@ -19,9 +19,9 @@ const UI = {
 };
 
 const CONFIG = {
-    // ATUALIZAÇÃO CRUCIAL: Usando a API de Visualização do Google (gviz) que é à prova de bloqueios para planilhas públicas
-    SPREADSHEET_FIXOS: "https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/gviz/tq?tqx=out:csv",
-    SPREADSHEET_PORTATEIS: "https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/gviz/tq?tqx=out:csv",
+    // ATUALIZAÇÃO: Usando a API de Visualização com '&gid=0' garantindo a primeira folha sempre
+    SPREADSHEET_FIXOS: "https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/gviz/tq?tqx=out:csv&gid=0",
+    SPREADSHEET_PORTATEIS: "https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/gviz/tq?tqx=out:csv&gid=0",
     MAP_CENTER: [-22.9068, -43.1729], // Rio de Janeiro
     MAP_ZOOM: 9
 };
@@ -255,10 +255,17 @@ function processMapMarkers(dataArray) {
 
     let plottedCount = 0;
     let missingCoordsCount = 0;
+    let errorCoordsCount = 0;
 
     dataArray.forEach(radar => {
         const latRaw = radar.lat || radar.latitude || radar.y;
         const lngRaw = radar.lng || radar.lon || radar.longitude || radar.x || radar.long;
+
+        // Se o valor contiver "erro" ou "encontrado" (como "Erro no Google"), regista como Erro em vez de falha genérica
+        if (typeof latRaw === 'string' && (latRaw.toLowerCase().includes('erro') || latRaw.toLowerCase().includes('encontrado'))) {
+             errorCoordsCount++;
+             return;
+        }
 
         const latStr = latRaw !== undefined && latRaw !== null ? String(latRaw).replace(',', '.') : null;
         const lngStr = lngRaw !== undefined && lngRaw !== null ? String(lngRaw).replace(',', '.') : null;
@@ -338,10 +345,15 @@ function processMapMarkers(dataArray) {
         }
     });
     
-    if (plottedCount === 0 && missingCoordsCount > 0) {
-        setTimeout(() => {
-            showToast(`Atenção: Nenhum radar com coordenadas válidas encontrado.`, "error");
-        }, 4500);
+    // INTELIGÊNCIA DE DIAGNÓSTICO
+    if (plottedCount === 0) {
+        if (dataArray.length === 0) {
+            setTimeout(() => showToast("Aviso: As planilhas estão vazias ou inacessíveis.", "error"), 4500);
+        } else if (errorCoordsCount > 0) {
+            setTimeout(() => showToast(`Lidos ${dataArray.length} radares, mas as coordenadas contêm palavras como "Erro". Termine o Script na Planilha!`, "error"), 4500);
+        } else if (missingCoordsCount > 0) {
+            setTimeout(() => showToast(`Atenção: Faltam números válidos nas colunas LAT e LNG.`, "error"), 4500);
+        }
     }
     
     return plottedCount;
