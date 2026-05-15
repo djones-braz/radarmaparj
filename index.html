@@ -33,23 +33,14 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
-    <!-- O Nosso CSS Customizado (Com ?v=6 para FORÇAR o GitHub a ignorar o Cache) -->
-    <link rel="stylesheet" href="estilo.css?v=6">
-
-    <!-- Proteção CSS para as imagens do Leaflet não colidirem com o Tailwind -->
-    <style>
-        .leaflet-container img.leaflet-tile {
-            max-width: none !important;
-            max-height: none !important;
-        }
-    </style>
+    <!-- O Nosso CSS Customizado Separado -->
+    <link rel="stylesheet" href="estilo.css?v=8">
 </head>
 <body class="antialiased text-slate-800 h-screen w-screen overflow-hidden bg-slate-200">
 
     <!-- Ecrã de Carregamento -->
     <div id="loading-overlay" class="fixed inset-0 bg-white z-[9999] flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="loader mb-4" style="border: 4px solid #f3f4f6; border-top: 4px solid #2563eb; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
         <h2 class="text-xl font-bold text-dark">RadarMapa RJ</h2>
         <p class="text-secondary text-sm mt-2">A sincronizar dados do DER-RJ...</p>
     </div>
@@ -61,7 +52,7 @@
         <!-- Barra de Navegação Superior (Pesquisa) -->
         <header class="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md z-[1000] pointer-events-none">
             <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 pointer-events-auto shadow-lg bg-white/95 backdrop-blur-md border border-white/50">
-                <button class="w-10 h-10 rounded-xl hover:bg-slate-100/50 flex items-center justify-center text-secondary transition-colors" aria-label="Menu">
+                <button id="btn-menu" class="w-10 h-10 rounded-xl hover:bg-slate-100/50 flex items-center justify-center text-secondary transition-colors" aria-label="Menu">
                     <i class="fa-solid fa-bars"></i>
                 </button>
                 
@@ -85,7 +76,7 @@
                 <i class="fa-solid fa-location-crosshairs text-xl"></i>
             </button>
             
-            <button id="btn-toggle-filters" onclick="document.getElementById('filters-panel').classList.toggle('translate-y-full'); document.getElementById('filters-panel').classList.toggle('md:translate-x-full');" class="w-14 h-14 bg-dark text-white rounded-2xl flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all transform hover:scale-105 relative" aria-label="Filtros">
+            <button id="btn-toggle-filters" class="w-14 h-14 bg-dark text-white rounded-2xl flex items-center justify-center shadow-xl hover:bg-slate-800 transition-all transform hover:scale-105 relative" aria-label="Filtros">
                 <i class="fa-solid fa-layer-group text-xl"></i>
                 <span id="filter-badge" class="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">4</span>
             </button>
@@ -99,14 +90,14 @@
                     <h3 class="text-xl font-bold text-dark">Filtros do Mapa</h3>
                     <p class="text-sm text-secondary">A exibir <span id="total-radars-count" class="font-bold text-primary">0</span> radares</p>
                 </div>
-                <button id="btn-close-filters" onclick="document.getElementById('filters-panel').classList.add('translate-y-full', 'md:translate-x-full');" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                <button id="btn-close-filters" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
             <div class="p-6 overflow-y-auto overflow-x-hidden flex-1" style="scrollbar-width: none; -ms-overflow-style: none;">
                 
-                <!-- NOVOS FILTROS DE LOCALIZAÇÃO -->
+                <!-- FILTROS DE LOCALIZAÇÃO -->
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Localização (Dinâmico)</h4>
                 <div class="space-y-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div>
@@ -197,13 +188,14 @@
         </div>
     </div>
 
+    <!-- Bibliotecas Externas -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- O Nosso JavaScript Customizado (v6) -->
-    <script src="app.js?v=6"></script>
+    <!-- A Nossa Lógica Separada -->
+    <script src="app.js?v=8"></script>
 
-    <!-- MEGA PATCH: Motor para a "tela cinzenta" do Leaflet -->
+    <!-- MEGA PATCH: Motor de redimensionamento do Leaflet. -->
     <script>
         window.addEventListener('load', function() {
             let attempts = 0;
