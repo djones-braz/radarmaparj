@@ -72,7 +72,8 @@ function initUI() {
         }
     });
 
-    UI.filterCity.addEventListener('change', applyLocationFilters);
+    // ATUALIZAÇÃO: O filtro de cidade agora atualiza as rodovias disponíveis primeiro
+    UI.filterCity.addEventListener('change', handleCityChange);
     UI.filterHighway.addEventListener('change', applyLocationFilters);
 
     UI.searchForm.addEventListener('submit', async (e) => {
@@ -129,6 +130,37 @@ function populateSelect(selectElement, optionsArray, defaultText) {
         option.textContent = opt;
         selectElement.appendChild(option);
     });
+}
+
+// NOVA FUNÇÃO: Atualiza a caixa de seleção de Rodovias com base na Cidade escolhida
+function handleCityChange() {
+    const selectedCity = UI.filterCity.value;
+    const currentHighway = UI.filterHighway.value; // Guarda a rodovia atual (se existir)
+    
+    const highwaysSet = new Set();
+    
+    // Varre os dados e adiciona apenas as rodovias que cruzam a cidade selecionada
+    AppState.markersData.forEach(data => {
+        if (selectedCity === 'all' || data.city === selectedCity) {
+            if (data.highway && data.highway !== 'NÃO IDENTIFICADA') {
+                highwaysSet.add(data.highway);
+            }
+        }
+    });
+    
+    // Repovoa o select de Rodovias com os novos dados
+    populateSelect(UI.filterHighway, Array.from(highwaysSet).sort(), "Todas as Rodovias");
+    
+    // Se a rodovia que estava selecionada antes ainda existir nesta cidade, mantém selecionada. 
+    // Caso contrário, volta para "Todas as Rodovias"
+    if (currentHighway !== 'all' && highwaysSet.has(currentHighway)) {
+        UI.filterHighway.value = currentHighway;
+    } else {
+        UI.filterHighway.value = 'all';
+    }
+    
+    // Após ajustar os selects, aplica os filtros no mapa
+    applyLocationFilters();
 }
 
 function applyLocationFilters() {
@@ -384,7 +416,7 @@ function processMapMarkers(dataArray) {
                     <i class="fa-solid ${statusConfig.icon}"></i> ${statusConfig.text}
                 </div>
                 
-                <!-- NOVO: Ferramenta de Depuração e Correção de Rota -->
+                <!-- Ferramenta de Depuração e Correção de Rota -->
                 <div class="border-t border-slate-100 pt-2 flex items-center justify-between text-[10px] text-slate-400">
                     <span title="Coordenadas cadastradas">${lat.toFixed(4)}, ${lng.toFixed(4)}</span>
                     <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" class="text-primary hover:text-blue-700 flex items-center gap-1 font-medium transition-colors">
