@@ -20,7 +20,14 @@ const AppState = {
     },
     markersData: [],
     isPanelOpen: false,
-    toastTimeout: null
+    toastTimeout: null,
+    
+    // NOVOS ESTADOS PARA O SISTEMA DE ROTAS
+    userLocation: null,
+    userMarker: null,
+    destinationLocation: null,
+    destinationMarker: null,
+    routeLine: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -61,27 +68,81 @@ function initUI() {
     UI.btnToggleFilters.addEventListener('click', toggleFiltersPanel);
     UI.btnCloseFilters.addEventListener('click', toggleFiltersPanel);
     
-    // Adicionado para suportar o botão do menu superior na versão mobile
     if(UI.btnMenu) {
         UI.btnMenu.addEventListener('click', toggleFiltersPanel);
     }
     
+    // ATUALIZAÇÃO: Botão de Centrar Mapa agora captura o GPS em tempo real!
     UI.btnCenterMap.addEventListener('click', () => {
-        if (AppState.map) {
-            AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM, { animate: true, duration: 1 });
+        showToast("A localizar o seu GPS...", "info");
+
+        if (!navigator.geolocation) {
+            showToast("O seu navegador não suporta GPS.", "error");
+            if (AppState.map) AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+            return;
         }
+
+        navigator.geolocation.getCurrentPosition(position => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            AppState.userLocation = [lat, lon];
+
+            if (AppState.userMarker) AppState.map.removeLayer(AppState.userMarker);
+
+            // Adiciona um ponto azul pulsante representando o utilizador
+            AppState.userMarker = L.circleMarker([lat, lon], {
+                radius: 8,
+                fillColor: "#3b82f6",
+                color: "#ffffff",
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 1
+            }).addTo(AppState.map).bindPopup("<b>Você está aqui</b>").openPopup();
+
+            // Se já tiver um destino selecionado, traça a rota automaticamente
+            if (AppState.destinationLocation) {
+                drawRoute(AppState.userLocation, AppState.destinationLocation);
+            } else {
+                AppState.map.setView([lat, lon], 14, { animate: true });
+                showToast("Localização encontrada!", "success");
+            }
+        }, error => {
+            console.error(error);
+            showToast("Permissão de GPS negada ou erro de sinal.", "error");
+            AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM, { animate: true });
+        }, { enableHighAccuracy: true });
     });
 
-    // ATUALIZAÇÃO: O filtro de cidade agora atualiza as rodovias disponíveis primeiro
     UI.filterCity.addEventListener('change', handleCityChange);
     UI.filterHighway.addEventListener('change', applyLocationFilters);
 
+    // Adicionar botão de limpar rota dinamicamente na barra de pesquisa
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    clearBtn.className = 'text-slate-400 hover:text-danger px-2 hidden transition-colors';
+    UI.searchInput.parentNode.insertBefore(clearBtn, UI.searchForm.querySelector('button[type="submit"]'));
+
+    UI.searchInput.addEventListener('input', () => {
+        if(UI.searchInput.value.trim().length > 0) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+    });
+
+    clearBtn.addEventListener('click', () => {
+        clearRoute();
+        clearBtn.classList.add('hidden');
+        showToast("Rota removida do mapa.", "info");
+        if (AppState.userLocation) AppState.map.setView(AppState.userLocation, 14);
+        else AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
+    });
+
+    // ATUALIZAÇÃO: Pesquisa agora define o DESTINO e traça rota!
     UI.searchForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         let query = UI.searchInput.value.trim();
         if (!query) return;
 
-        showToast("A pesquisar local...", "info");
+        showToast("A procurar destino...", "info");
         
         try {
             let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&viewbox=-45.0,-20.0,-40.0,-24.0&bounded=0&limit=1`;
@@ -95,12 +156,7 @@ function initUI() {
             }
 
             if (data && data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lon = parseFloat(data[0].lon);
-                const zoomLevel = data[0].class === 'highway' || data[0].class === 'building' ? 17 : 14;
-                
-                AppState.map.setView([lat, lon], zoomLevel, { animate: true, duration: 1.5 });
-                showToast("Local encontrado!", "success");
+                setDestination(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
             } else {
                 showToast("Endereço não encontrado.", "error");
             }
@@ -110,6 +166,84 @@ function initUI() {
     });
 
     setupFiltersLogic();
+}
+
+// NOVA FUNÇÃO: Definir um Destino e preparar rota
+function setDestination(lat, lon, title) {
+    AppState.destinationLocation = [lat, lon];
+
+    if (AppState.destinationMarker) AppState.map.removeLayer(AppState.destinationMarker);
+    
+    // Ícone de bandeira xadrez para o destino
+    AppState.destinationMarker = L.marker([lat, lon], {
+        icon: L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div class="w-8 h-8 bg-dark rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white"><i class="fa-solid fa-flag-checkered"></i></div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -16]
+        })
+    }).addTo(AppState.map).bindPopup(`<div class="text-sm"><b>🏁 Destino:</b><br>${title}</div>`).openPopup();
+
+    if (AppState.userLocation) {
+        drawRoute(AppState.userLocation, AppState.destinationLocation);
+    } else {
+        AppState.map.setView([lat, lon], 15, { animate: true, duration: 1 });
+        showToast("Destino definido! Clique no botão de GPS (mira) para traçar a rota a partir de si.", "success");
+    }
+}
+
+// NOVA FUNÇÃO: Comunica com o OSRM e desenha a linha no mapa
+async function drawRoute(start, end) {
+    showToast("A calcular a melhor rota...", "info");
+    // OSRM recebe primeiro Longitude, depois Latitude
+    const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+    
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.routes && data.routes.length > 0) {
+            // O GeoJSON vem como [lon, lat], o Leaflet precisa de [lat, lon]
+            const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+
+            if (AppState.routeLine) AppState.map.removeLayer(AppState.routeLine);
+
+            AppState.routeLine = L.polyline(coords, {
+                color: '#3b82f6', // Azul Tailwind
+                weight: 6,
+                opacity: 0.8,
+                dashArray: '10, 10',
+                lineJoin: 'round'
+            }).addTo(AppState.map);
+
+            AppState.map.fitBounds(AppState.routeLine.getBounds(), { padding: [50, 50], animate: true });
+
+            const distanceKm = (data.routes[0].distance / 1000).toFixed(1);
+            const durationMin = Math.round(data.routes[0].duration / 60);
+
+            showToast(`Rota traçada: ${distanceKm} km (~${durationMin} min)`, "success");
+        } else {
+            showToast("Não foi possível traçar uma rota de carro para este destino.", "warning");
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Erro ao conectar com servidor de rotas.", "error");
+    }
+}
+
+// NOVA FUNÇÃO: Limpar Rota
+function clearRoute() {
+    if (AppState.routeLine) {
+        AppState.map.removeLayer(AppState.routeLine);
+        AppState.routeLine = null;
+    }
+    if (AppState.destinationMarker) {
+        AppState.map.removeLayer(AppState.destinationMarker);
+        AppState.destinationMarker = null;
+    }
+    AppState.destinationLocation = null;
+    UI.searchInput.value = '';
 }
 
 function toggleFiltersPanel() {
@@ -132,14 +266,12 @@ function populateSelect(selectElement, optionsArray, defaultText) {
     });
 }
 
-// NOVA FUNÇÃO: Atualiza a caixa de seleção de Rodovias com base na Cidade escolhida
 function handleCityChange() {
     const selectedCity = UI.filterCity.value;
-    const currentHighway = UI.filterHighway.value; // Guarda a rodovia atual (se existir)
+    const currentHighway = UI.filterHighway.value;
     
     const highwaysSet = new Set();
     
-    // Varre os dados e adiciona apenas as rodovias que cruzam a cidade selecionada
     AppState.markersData.forEach(data => {
         if (selectedCity === 'all' || data.city === selectedCity) {
             if (data.highway && data.highway !== 'NÃO IDENTIFICADA') {
@@ -148,18 +280,14 @@ function handleCityChange() {
         }
     });
     
-    // Repovoa o select de Rodovias com os novos dados
     populateSelect(UI.filterHighway, Array.from(highwaysSet).sort(), "Todas as Rodovias");
     
-    // Se a rodovia que estava selecionada antes ainda existir nesta cidade, mantém selecionada. 
-    // Caso contrário, volta para "Todas as Rodovias"
     if (currentHighway !== 'all' && highwaysSet.has(currentHighway)) {
         UI.filterHighway.value = currentHighway;
     } else {
         UI.filterHighway.value = 'all';
     }
     
-    // Após ajustar os selects, aplica os filtros no mapa
     applyLocationFilters();
 }
 
@@ -275,6 +403,11 @@ function initMap() {
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19
     }).addTo(AppState.map);
+
+    // ATUALIZAÇÃO: Permitir marcar destino clicando com botão direito (ou premir longo no telemóvel)
+    AppState.map.on('contextmenu', (e) => {
+        setDestination(e.latlng.lat, e.latlng.lng, "Local marcado no mapa");
+    });
 
     for (let key in AppState.layerGroups) {
         AppState.layerGroups[key].addTo(AppState.map);
@@ -416,7 +549,6 @@ function processMapMarkers(dataArray) {
                     <i class="fa-solid ${statusConfig.icon}"></i> ${statusConfig.text}
                 </div>
                 
-                <!-- Ferramenta de Depuração e Correção de Rota -->
                 <div class="border-t border-slate-100 pt-2 flex items-center justify-between text-[10px] text-slate-400">
                     <span title="Coordenadas cadastradas">${lat.toFixed(4)}, ${lng.toFixed(4)}</span>
                     <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" class="text-primary hover:text-blue-700 flex items-center gap-1 font-medium transition-colors">
@@ -440,7 +572,6 @@ function processMapMarkers(dataArray) {
     populateSelect(UI.filterCity, Array.from(citiesSet).sort(), "Todas as Cidades");
     populateSelect(UI.filterHighway, Array.from(highwaysSet).sort(), "Todas as Rodovias");
 
-    // Exibir no mapa consoante a seleção
     applyLocationFilters();
 }
 
