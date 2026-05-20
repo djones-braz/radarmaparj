@@ -1,28 +1,12 @@
 // ==========================================
 // CONFIGURAÇÃO E ESTADO
 // ==========================================
-const UI = {
-    loadingOverlay: document.getElementById('loading-overlay'),
-    filtersPanel: document.getElementById('filters-panel'),
-    btnToggleFilters: document.getElementById('btn-toggle-filters'),
-    btnCloseFilters: document.getElementById('btn-close-filters'),
-    btnCenterMap: document.getElementById('btn-center-map'),
-    filterCheckboxes: document.querySelectorAll('.radar-filter'),
-    filterAllToggle: document.getElementById('filter-all'),
-    filterBadge: document.getElementById('filter-badge'),
-    totalCountSpan: document.getElementById('total-radars-count'),
-    toast: document.getElementById('notification-toast'),
-    toastIcon: document.getElementById('toast-icon'),
-    toastMsg: document.getElementById('toast-msg'),
-    searchForm: document.getElementById('search-form'),
-    searchInput: document.getElementById('search-input')
-};
+let UI = {};
 
 const CONFIG = {
-    // ATUALIZAÇÃO: Usando a API de Visualização com '&gid=0' garantindo a primeira folha sempre
-    SPREADSHEET_FIXOS: "https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/gviz/tq?tqx=out:csv&gid=0",
-    SPREADSHEET_PORTATEIS: "https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/gviz/tq?tqx=out:csv&gid=0",
-    MAP_CENTER: [-22.9068, -43.1729], // Rio de Janeiro
+    SPREADSHEET_FIXOS: "https://docs.google.com/spreadsheets/d/1KgpLldzIPdEsEN1K2ox7oVo4SBegZ3RsdIRbCq4_Jb0/export?format=csv",
+    SPREADSHEET_PORTATEIS: "https://docs.google.com/spreadsheets/d/1UEMPYtUwSplcpWkNyNO0F4ETBiPjzLxsFgbXqsxTRzE/export?format=csv",
+    MAP_CENTER: [-22.9068, -43.1729],
     MAP_ZOOM: 9
 };
 
@@ -34,17 +18,53 @@ const AppState = {
         'portatil-ativo': L.layerGroup(),
         'portatil-inativo': L.layerGroup()
     },
+    markersData: [],
     isPanelOpen: false,
     toastTimeout: null
 };
 
-// ==========================================
-// MÓDULO DE UI E INTERAÇÃO
-// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof L === 'undefined' || typeof Papa === 'undefined') {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.innerHTML = `<div style="background:#fee2e2; border:2px solid #ef4444; border-radius:12px; padding:24px; text-align:center; color:#991b1b; font-family:sans-serif;"><h2>Erro Estrutural Detectado</h2></div>`;
+        }
+        return;
+    }
+
+    UI = {
+        loadingOverlay: document.getElementById('loading-overlay'),
+        filtersPanel: document.getElementById('filters-panel'),
+        btnToggleFilters: document.getElementById('btn-toggle-filters'),
+        btnCloseFilters: document.getElementById('btn-close-filters'),
+        btnMenu: document.getElementById('btn-menu'),
+        btnCenterMap: document.getElementById('btn-center-map'),
+        filterCheckboxes: document.querySelectorAll('.radar-filter'),
+        filterAllToggle: document.getElementById('filter-all'),
+        filterBadge: document.getElementById('filter-badge'),
+        totalCountSpan: document.getElementById('total-radars-count'),
+        toast: document.getElementById('notification-toast'),
+        toastIcon: document.getElementById('toast-icon'),
+        toastMsg: document.getElementById('toast-msg'),
+        searchForm: document.getElementById('search-form'),
+        searchInput: document.getElementById('search-input'),
+        filterCity: document.getElementById('filter-city'),
+        filterHighway: document.getElementById('filter-highway')
+    };
+
+    initUI();
+    initMap();
+    fetchAndPlotData();
+});
 
 function initUI() {
     UI.btnToggleFilters.addEventListener('click', toggleFiltersPanel);
     UI.btnCloseFilters.addEventListener('click', toggleFiltersPanel);
+    
+    // Adicionado para suportar o botão do menu superior na versão mobile
+    if(UI.btnMenu) {
+        UI.btnMenu.addEventListener('click', toggleFiltersPanel);
+    }
     
     UI.btnCenterMap.addEventListener('click', () => {
         if (AppState.map) {
@@ -52,12 +72,15 @@ function initUI() {
         }
     });
 
+    UI.filterCity.addEventListener('change', applyLocationFilters);
+    UI.filterHighway.addEventListener('change', applyLocationFilters);
+
     UI.searchForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         let query = UI.searchInput.value.trim();
         if (!query) return;
 
-        showToast("Buscando local...", "info");
+        showToast("A pesquisar local...", "info");
         
         try {
             let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&viewbox=-45.0,-20.0,-40.0,-24.0&bounded=0&limit=1`;
@@ -78,11 +101,10 @@ function initUI() {
                 AppState.map.setView([lat, lon], zoomLevel, { animate: true, duration: 1.5 });
                 showToast("Local encontrado!", "success");
             } else {
-                showToast("Endereço não encontrado. Tente ser mais específico.", "error");
+                showToast("Endereço não encontrado.", "error");
             }
         } catch (err) {
-            console.error("Erro na pesquisa OSM:", err);
-            showToast("Erro ao comunicar com o servidor de pesquisa.", "error");
+            showToast("Erro ao comunicar com o servidor.", "error");
         }
     });
 
@@ -98,31 +120,88 @@ function toggleFiltersPanel() {
     }
 }
 
-function setupFiltersLogic() {
-    const updateMapLayers = () => {
-        let activeCount = 0;
-        
-        UI.filterCheckboxes.forEach(cb => {
-            const layerId = cb.value;
-            const isChecked = cb.checked;
-            
-            if (isChecked) {
-                AppState.map.addLayer(AppState.layerGroups[layerId]);
-                activeCount++;
-            } else {
-                AppState.map.removeLayer(AppState.layerGroups[layerId]);
+function populateSelect(selectElement, optionsArray, defaultText) {
+    selectElement.innerHTML = `<option value="all">${defaultText}</option>`;
+    optionsArray.forEach(opt => {
+        if (!opt) return;
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        selectElement.appendChild(option);
+    });
+}
+
+function applyLocationFilters() {
+    for (let key in AppState.layerGroups) {
+        AppState.layerGroups[key].clearLayers();
+    }
+
+    const selectedCity = UI.filterCity.value;
+    const selectedHighway = UI.filterHighway.value;
+    let hasVisibleMarkers = false;
+
+    AppState.markersData.forEach(data => {
+        const matchCity = selectedCity === 'all' || data.city === selectedCity;
+        const matchHighway = selectedHighway === 'all' || data.highway === selectedHighway;
+
+        if (matchCity && matchHighway) {
+            data.marker.addTo(AppState.layerGroups[data.categoryKey]);
+            hasVisibleMarkers = true;
+        }
+    });
+
+    updateMapVisibility();
+    
+    if ((selectedCity !== 'all' || selectedHighway !== 'all') && hasVisibleMarkers) {
+        let bounds = L.latLngBounds();
+        for (let key in AppState.layerGroups) {
+            let group = AppState.layerGroups[key];
+            if (AppState.map.hasLayer(group)) {
+                group.eachLayer(function (layer) {
+                    bounds.extend(layer.getLatLng());
+                });
             }
-        });
+        }
+        if (bounds.isValid()) {
+            AppState.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1 });
+        }
+        
+        let text = selectedCity !== 'all' ? selectedCity : selectedHighway;
+        showToast(`A focar radares em ${text}`, 'success');
+    }
+}
 
-        UI.filterBadge.textContent = activeCount;
-        if (activeCount === 0) UI.filterBadge.classList.add('hidden');
-        else UI.filterBadge.classList.remove('hidden');
-
-        UI.filterAllToggle.checked = (activeCount === UI.filterCheckboxes.length);
-    };
+function updateMapVisibility() {
+    let activeCategories = 0;
+    let totalVisibleMarkers = 0;
 
     UI.filterCheckboxes.forEach(cb => {
-        cb.addEventListener('change', updateMapLayers);
+        const layerId = cb.value;
+        const isChecked = cb.checked;
+        
+        if (isChecked) {
+            AppState.map.addLayer(AppState.layerGroups[layerId]);
+            activeCategories++;
+            totalVisibleMarkers += AppState.layerGroups[layerId].getLayers().length;
+        } else {
+            AppState.map.removeLayer(AppState.layerGroups[layerId]);
+        }
+    });
+
+    UI.filterBadge.textContent = activeCategories;
+    if (activeCategories === 0) UI.filterBadge.classList.add('hidden');
+    else UI.filterBadge.classList.remove('hidden');
+
+    UI.filterAllToggle.checked = (activeCategories === UI.filterCheckboxes.length);
+    
+    if (UI.totalCountSpan) {
+        UI.totalCountSpan.textContent = totalVisibleMarkers;
+    }
+}
+
+function setupFiltersLogic() {
+    UI.filterCheckboxes.forEach(cb => {
+        cb.addEventListener('change', updateMapVisibility);
     });
 
     UI.filterAllToggle.addEventListener('change', (e) => {
@@ -130,7 +209,7 @@ function setupFiltersLogic() {
         UI.filterCheckboxes.forEach(cb => {
             cb.checked = isChecked;
         });
-        updateMapLayers();
+        updateMapVisibility();
     });
 }
 
@@ -152,20 +231,16 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// ==========================================
-// MÓDULO DE MAPA E DADOS
-// ==========================================
-
 function initMap() {
     AppState.map = L.map('map', { 
         zoomControl: false,
-        tap: false
+        tap: false 
     }).setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
     
     L.control.zoom({ position: 'bottomleft' }).addTo(AppState.map);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19
     }).addTo(AppState.map);
 
@@ -176,20 +251,14 @@ function initMap() {
 
 async function fetchAndPlotData() {
     try {
-        // Busca os dados das planilhas de forma robusta
         const [fixosData, portateisData] = await Promise.all([
             fetchCSV(CONFIG.SPREADSHEET_FIXOS, 'fixo'),
             fetchCSV(CONFIG.SPREADSHEET_PORTATEIS, 'portatil')
         ]);
 
         const allData = [...fixosData, ...portateisData];
-        const validPointsCount = processMapMarkers(allData);
-        
-        if (UI.totalCountSpan) {
-            UI.totalCountSpan.textContent = validPointsCount;
-        }
+        processMapMarkers(allData);
 
-        // Força a atualização visual do mapa depois que os dados carregam
         if (AppState.map) {
             AppState.map.invalidateSize();
         }
@@ -197,73 +266,52 @@ async function fetchAndPlotData() {
         setTimeout(removeLoadingScreen, 800);
 
     } catch (error) {
-        console.error("Erro fatal ao carregar dados:", error);
-        showToast("Erro de rede ao conectar com as Planilhas", "error");
+        showToast("Erro ao conectar com as Planilhas", "error");
         removeLoadingScreen();
     }
 }
 
-// NOVA FUNÇÃO DE DOWNLOAD: Muito mais robusta, usa o 'fetch' nativo antes de passar para o PapaParse
-async function fetchCSV(url, defaultType) {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("HTTP error " + response.status);
-        
-        const csvText = await response.text();
-
-        // Se o Google enviou uma página de erro/login HTML ao invés do CSV
-        if (csvText.trim().toLowerCase().startsWith('<!doctype html>') || csvText.includes('<html')) {
-            console.warn(`Acesso negado ou redirecionamento na planilha de ${defaultType}s.`);
-            return [];
-        }
-
-        return new Promise((resolve) => {
-            Papa.parse(csvText, {
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    const cleanData = results.data.map(row => {
-                        const normalized = { tipo_origem: defaultType };
-                        for (let key in row) {
-                            if (row.hasOwnProperty(key) && key) {
-                                // Limpeza pesada de cabeçalhos
-                                const cleanKey = String(key).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
-                                normalized[cleanKey] = row[key];
-                            }
+function fetchCSV(url, defaultType) {
+    return new Promise((resolve) => {
+        Papa.parse(url, {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                const cleanData = results.data.map(row => {
+                    const normalized = { tipo_origem: defaultType };
+                    for (let key in row) {
+                        if (row.hasOwnProperty(key) && key) {
+                            const cleanKey = String(key).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
+                            normalized[cleanKey] = row[key];
                         }
-                        return normalized;
-                    });
-                    resolve(cleanData);
-                },
-                error: function(error) {
-                    console.error(`Erro PapaParse:`, error);
-                    resolve([]);
-                }
-            });
+                    }
+                    return normalized;
+                });
+                resolve(cleanData);
+            },
+            error: function(error) {
+                resolve([]);
+            }
         });
-    } catch (e) {
-        console.error(`Erro ao baixar a planilha ${defaultType}:`, e);
-        return [];
-    }
+    });
 }
 
 function processMapMarkers(dataArray) {
     for (let key in AppState.layerGroups) {
         AppState.layerGroups[key].clearLayers();
     }
+    AppState.markersData = [];
 
-    let plottedCount = 0;
-    let missingCoordsCount = 0;
-    let errorCoordsCount = 0;
+    const citiesSet = new Set();
+    const highwaysSet = new Set();
 
     dataArray.forEach(radar => {
         const latRaw = radar.lat || radar.latitude || radar.y;
         const lngRaw = radar.lng || radar.lon || radar.longitude || radar.x || radar.long;
 
-        // Se o valor contiver "erro" ou "encontrado" (como "Erro no Google"), regista como Erro em vez de falha genérica
         if (typeof latRaw === 'string' && (latRaw.toLowerCase().includes('erro') || latRaw.toLowerCase().includes('encontrado'))) {
-             errorCoordsCount++;
              return;
         }
 
@@ -274,16 +322,20 @@ function processMapMarkers(dataArray) {
         const lng = parseFloat(lngStr);
 
         if (isNaN(lat) || isNaN(lng)) {
-            missingCoordsCount++;
             return;
         }
-        
-        plottedCount++;
 
         const tipo = radar.tipo_origem || 'fixo';
         const isInativo = String(radar.status || '').toLowerCase().includes('inativo');
         const status = isInativo ? 'inativo' : 'ativo';
         const categoryKey = `${tipo}-${status}`;
+
+        const rodoviaRaw = radar.rodovia ? String(radar.rodovia).trim().toUpperCase() : 'NÃO IDENTIFICADA';
+        const municipioRaw = radar.municipio || radar.localidade || radar.local || 'NÃO INFORMADO';
+        const cidadeRaw = String(municipioRaw).trim().toUpperCase();
+
+        if (rodoviaRaw !== 'NÃO IDENTIFICADA') highwaysSet.add(rodoviaRaw);
+        if (cidadeRaw !== 'NÃO INFORMADO') citiesSet.add(cidadeRaw);
 
         const iconClass = tipo === 'fixo' ? 'fa-video' : 'fa-camera';
         const styleClass = `radar-${tipo} ${status}`;
@@ -296,11 +348,8 @@ function processMapMarkers(dataArray) {
             popupAnchor: [0, -19]
         });
 
-        const rodoviaBase = radar.rodovia || 'Via não identificada';
         const km = radar.km !== undefined ? ` - KM ${radar.km}` : '';
-        const rodovia = `${rodoviaBase}${km}`;
-        
-        const localidade = radar.localidade || radar.local || radar.municipio || 'Local não informado';
+        const rodoviaFormatada = `${rodoviaRaw}${km}`;
         const limite = radar.velocidadedefiscalizacao || radar.limite || '--';
         const tipoText = tipo === 'fixo' ? 'Radar Fixo' : 'Radar Portátil';
         
@@ -316,14 +365,14 @@ function processMapMarkers(dataArray) {
                     </div>
                     <div>
                         <h4 class="font-bold text-dark text-base m-0 leading-tight">${tipoText}</h4>
-                        <p class="text-[10px] text-secondary uppercase font-bold tracking-wider">${localidade}</p>
+                        <p class="text-[10px] text-secondary uppercase font-bold tracking-wider">${cidadeRaw}</p>
                     </div>
                 </div>
                 
                 <div class="space-y-2 mb-3">
                     <div class="flex items-center gap-2 text-sm text-secondary">
                         <div class="w-5 text-center"><i class="fa-solid fa-road text-slate-400"></i></div>
-                        <span class="font-medium text-dark truncate">${rodovia}</span>
+                        <span class="font-medium text-dark truncate">${rodoviaFormatada}</span>
                     </div>
                     <div class="flex items-center gap-2 text-sm text-secondary">
                         <div class="w-5 text-center"><i class="fa-solid fa-gauge-high text-slate-400"></i></div>
@@ -340,23 +389,19 @@ function processMapMarkers(dataArray) {
         const marker = L.marker([lat, lng], { icon: customIcon })
                         .bindPopup(popupHtml, { closeButton: false, className: 'modern-popup' });
         
-        if (AppState.layerGroups[categoryKey]) {
-            marker.addTo(AppState.layerGroups[categoryKey]);
-        }
+        AppState.markersData.push({
+            marker: marker,
+            categoryKey: categoryKey,
+            city: cidadeRaw,
+            highway: rodoviaRaw
+        });
     });
     
-    // INTELIGÊNCIA DE DIAGNÓSTICO
-    if (plottedCount === 0) {
-        if (dataArray.length === 0) {
-            setTimeout(() => showToast("Aviso: As planilhas estão vazias ou inacessíveis.", "error"), 4500);
-        } else if (errorCoordsCount > 0) {
-            setTimeout(() => showToast(`Lidos ${dataArray.length} radares, mas as coordenadas contêm palavras como "Erro". Termine o Script na Planilha!`, "error"), 4500);
-        } else if (missingCoordsCount > 0) {
-            setTimeout(() => showToast(`Atenção: Faltam números válidos nas colunas LAT e LNG.`, "error"), 4500);
-        }
-    }
-    
-    return plottedCount;
+    populateSelect(UI.filterCity, Array.from(citiesSet).sort(), "Todas as Cidades");
+    populateSelect(UI.filterHighway, Array.from(highwaysSet).sort(), "Todas as Rodovias");
+
+    // Exibir no mapa consoante a seleção
+    applyLocationFilters();
 }
 
 function removeLoadingScreen() {
@@ -367,27 +412,3 @@ function removeLoadingScreen() {
         }, 500);
     }
 }
-
-// ==========================================
-// INICIALIZAÇÃO
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof L === 'undefined' || typeof Papa === 'undefined') {
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) {
-            overlay.innerHTML = `
-                <div style="background: #fee2e2; border: 2px solid #ef4444; border-radius: 12px; padding: 24px; text-align: center; max-width: 400px; color: #991b1b; font-family: sans-serif; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
-                    <h2 style="margin-top: 0; font-size: 1.25rem; font-weight: bold;">Erro Estrutural Detectado</h2>
-                    <p style="font-size: 0.875rem; margin-bottom: 16px;">O navegador não conseguiu carregar as bibliotecas do mapa.</p>
-                </div>
-            `;
-            const loaderDiv = overlay.querySelector('.loader');
-            if (loaderDiv) loaderDiv.style.display = 'none';
-        }
-        return;
-    }
-
-    initUI();
-    initMap();
-    fetchAndPlotData();
-});
