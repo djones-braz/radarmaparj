@@ -380,8 +380,16 @@ function processMapMarkers(dataArray) {
                     </div>
                 </div>
 
-                <div class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ${statusConfig.bg} ${statusConfig.color}">
+                <div class="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold ${statusConfig.bg} ${statusConfig.color} mb-3">
                     <i class="fa-solid ${statusConfig.icon}"></i> ${statusConfig.text}
+                </div>
+                
+                <!-- NOVO: Ferramenta de Depuração e Correção de Rota -->
+                <div class="border-t border-slate-100 pt-2 flex items-center justify-between text-[10px] text-slate-400">
+                    <span title="Coordenadas cadastradas">${lat.toFixed(4)}, ${lng.toFixed(4)}</span>
+                    <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" class="text-primary hover:text-blue-700 flex items-center gap-1 font-medium transition-colors">
+                        <i class="fa-solid fa-map-location-dot"></i> Ver no Maps
+                    </a>
                 </div>
             </div>
         `;
