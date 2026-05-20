@@ -22,7 +22,7 @@ const AppState = {
     isPanelOpen: false,
     toastTimeout: null,
     
-    // NOVOS ESTADOS PARA O SISTEMA DE ROTAS
+    // ESTADOS PARA O SISTEMA DE ROTAS
     userLocation: null,
     userMarker: null,
     destinationLocation: null,
@@ -72,51 +72,23 @@ function initUI() {
         UI.btnMenu.addEventListener('click', toggleFiltersPanel);
     }
     
-    // ATUALIZAÇÃO: Botão de Centrar Mapa agora captura o GPS em tempo real!
+    // Botão de Centrar Mapa (Apenas foca na pessoa ou pede permissão pela 1ª vez)
     UI.btnCenterMap.addEventListener('click', () => {
         showToast("A localizar o seu GPS...", "info");
-
-        if (!navigator.geolocation) {
-            showToast("O seu navegador não suporta GPS.", "error");
-            if (AppState.map) AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(position => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            AppState.userLocation = [lat, lon];
-
-            if (AppState.userMarker) AppState.map.removeLayer(AppState.userMarker);
-
-            // Adiciona um ponto azul pulsante representando o utilizador
-            AppState.userMarker = L.circleMarker([lat, lon], {
-                radius: 8,
-                fillColor: "#3b82f6",
-                color: "#ffffff",
-                weight: 3,
-                opacity: 1,
-                fillOpacity: 1
-            }).addTo(AppState.map).bindPopup("<b>Você está aqui</b>").openPopup();
-
-            // Se já tiver um destino selecionado, traça a rota automaticamente
-            if (AppState.destinationLocation) {
-                drawRoute(AppState.userLocation, AppState.destinationLocation);
-            } else {
-                AppState.map.setView([lat, lon], 14, { animate: true });
-                showToast("Localização encontrada!", "success");
+        getUserLocation((location) => {
+            if (location) {
+                AppState.map.setView(location, 15, { animate: true });
+                if (AppState.destinationLocation) {
+                    drawRoute(location, AppState.destinationLocation);
+                }
             }
-        }, error => {
-            console.error(error);
-            showToast("Permissão de GPS negada ou erro de sinal.", "error");
-            AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM, { animate: true });
-        }, { enableHighAccuracy: true });
+        });
     });
 
     UI.filterCity.addEventListener('change', handleCityChange);
     UI.filterHighway.addEventListener('change', applyLocationFilters);
 
-    // Adicionar botão de limpar rota dinamicamente na barra de pesquisa
+    // Botão dinâmico para limpar a rota na barra de pesquisa
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
@@ -136,7 +108,7 @@ function initUI() {
         else AppState.map.setView(CONFIG.MAP_CENTER, CONFIG.MAP_ZOOM);
     });
 
-    // ATUALIZAÇÃO: Pesquisa agora define o DESTINO e traça rota!
+    // Pesquisa agora traça destino E chama o GPS automaticamente!
     UI.searchForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         let query = UI.searchInput.value.trim();
@@ -168,13 +140,50 @@ function initUI() {
     setupFiltersLogic();
 }
 
-// NOVA FUNÇÃO: Definir um Destino e preparar rota
+// ==========================================
+// FUNÇÕES DE GEOLOCALIZAÇÃO E ROTAS
+// ==========================================
+
+// NOVA FUNÇÃO: Obtém a localização do usuário com tratamento inteligente de erros
+function getUserLocation(callback) {
+    if (!navigator.geolocation) {
+        showToast("O seu navegador não suporta GPS.", "error");
+        if (callback) callback(null);
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(position => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        AppState.userLocation = [lat, lon];
+
+        if (AppState.userMarker) AppState.map.removeLayer(AppState.userMarker);
+
+        AppState.userMarker = L.circleMarker([lat, lon], {
+            radius: 8, fillColor: "#3b82f6", color: "#ffffff", weight: 3, opacity: 1, fillOpacity: 1
+        }).addTo(AppState.map).bindPopup("<b>Você está aqui</b>");
+
+        showToast("Localização encontrada!", "success");
+        if (callback) callback([lat, lon]);
+
+    }, error => {
+        console.error(error);
+        if (error.code === 1) { // PERMISSION_DENIED
+            showToast("Permissão de GPS negada. Por favor, permita o acesso no seu navegador/celular.", "error");
+        } else if (error.code === 2) { // POSITION_UNAVAILABLE
+            showToast("Sinal de GPS indisponível no momento.", "error");
+        } else { // TIMEOUT ou outros
+            showToast("Tempo esgotado ao buscar GPS.", "error");
+        }
+        if (callback) callback(null);
+    }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
 function setDestination(lat, lon, title) {
     AppState.destinationLocation = [lat, lon];
 
     if (AppState.destinationMarker) AppState.map.removeLayer(AppState.destinationMarker);
     
-    // Ícone de bandeira xadrez para o destino
     AppState.destinationMarker = L.marker([lat, lon], {
         icon: L.divIcon({
             className: 'custom-div-icon',
@@ -186,17 +195,23 @@ function setDestination(lat, lon, title) {
     }).addTo(AppState.map).bindPopup(`<div class="text-sm"><b>🏁 Destino:</b><br>${title}</div>`).openPopup();
 
     if (AppState.userLocation) {
+        // Se já sabemos onde ele está, traça a rota
         drawRoute(AppState.userLocation, AppState.destinationLocation);
     } else {
-        AppState.map.setView([lat, lon], 15, { animate: true, duration: 1 });
-        showToast("Destino definido! Clique no botão de GPS (mira) para traçar a rota a partir de si.", "success");
+        // AUTOMAÇÃO: Se não sabemos onde está, pede o GPS na hora!
+        showToast("Destino definido! Solicitando seu GPS para traçar a rota...", "info");
+        getUserLocation((location) => {
+            if (location) {
+                drawRoute(location, AppState.destinationLocation);
+            } else {
+                AppState.map.setView([lat, lon], 15, { animate: true, duration: 1 });
+            }
+        });
     }
 }
 
-// NOVA FUNÇÃO: Comunica com o OSRM e desenha a linha no mapa
 async function drawRoute(start, end) {
     showToast("A calcular a melhor rota...", "info");
-    // OSRM recebe primeiro Longitude, depois Latitude
     const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
     
     try {
@@ -204,13 +219,12 @@ async function drawRoute(start, end) {
         const data = await response.json();
 
         if (data.routes && data.routes.length > 0) {
-            // O GeoJSON vem como [lon, lat], o Leaflet precisa de [lat, lon]
             const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
 
             if (AppState.routeLine) AppState.map.removeLayer(AppState.routeLine);
 
             AppState.routeLine = L.polyline(coords, {
-                color: '#3b82f6', // Azul Tailwind
+                color: '#3b82f6',
                 weight: 6,
                 opacity: 0.8,
                 dashArray: '10, 10',
@@ -228,11 +242,10 @@ async function drawRoute(start, end) {
         }
     } catch (err) {
         console.error(err);
-        showToast("Erro ao conectar com servidor de rotas.", "error");
+        showToast("Erro ao conectar com servidor de rotas OSRM.", "error");
     }
 }
 
-// NOVA FUNÇÃO: Limpar Rota
 function clearRoute() {
     if (AppState.routeLine) {
         AppState.map.removeLayer(AppState.routeLine);
@@ -245,6 +258,10 @@ function clearRoute() {
     AppState.destinationLocation = null;
     UI.searchInput.value = '';
 }
+
+// ==========================================
+// FUNÇÕES DE INTERFACE (FILTROS E UI)
+// ==========================================
 
 function toggleFiltersPanel() {
     AppState.isPanelOpen = !AppState.isPanelOpen;
@@ -391,6 +408,10 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
+// ==========================================
+// MÓDULO DE MAPA E DADOS BASE
+// ==========================================
+
 function initMap() {
     AppState.map = L.map('map', { 
         zoomControl: false,
@@ -404,7 +425,7 @@ function initMap() {
         maxZoom: 19
     }).addTo(AppState.map);
 
-    // ATUALIZAÇÃO: Permitir marcar destino clicando com botão direito (ou premir longo no telemóvel)
+    // Context Menu (Clique com o botão direito) para definir Destino rápido
     AppState.map.on('contextmenu', (e) => {
         setDestination(e.latlng.lat, e.latlng.lng, "Local marcado no mapa");
     });
