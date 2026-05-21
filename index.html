@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="application-name" content="RadarMapa RJ" />
+  <meta name="apple-mobile-web-app-title" content="RadarMapa RJ" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta
+    name="description"
+    content="RadarMapa RJ: mapa informativo de radares fixos e portáteis do DER-RJ com base em dados públicos tratados."
+  />
+
+  <title>RadarMapa RJ — PWA de Rotas e Radares DER-RJ</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    referrerpolicy="no-referrer"
+  />
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="style.css?v=4.0.0" />
+</head>
+
+<body>
+  <noscript>
+    <div class="noscript">
+      Para usar o RadarMapa RJ, ative o JavaScript no navegador.
+    </div>
+  </noscript>
+
+  <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite">
+    <div class="loading-card">
+      <div class="loader" aria-hidden="true"></div>
+      <strong>RadarMapa RJ</strong>
+      <span>Carregando mapa e base de dados...</span>
+    </div>
+  </div>
+
+  <main class="app-shell" aria-label="RadarMapa RJ">
+    <section id="map" class="map" aria-label="Mapa com radares do DER-RJ"></section>
+
+    <!-- Barra superior -->
+    <header class="topbar" aria-label="Barra principal">
+      <button id="btnOpenPanel" class="icon-button" type="button" aria-label="Abrir filtros">
+        <i class="fa-solid fa-sliders"></i>
+      </button>
+
+      <form id="routeSearchForm" class="search-box" autocomplete="off">
+        <label for="destinationInput" class="sr-only">Pesquisar destino para traçar rota</label>
+        <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+        <input
+          id="destinationInput"
+          type="search"
+          placeholder="Para onde você vai? Ex.: Copacabana, RJ"
+          inputmode="search"
+        />
+        <button id="btnClearRouteSearch" class="clear-search" type="button" aria-label="Limpar busca e rota">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+        <button class="search-submit" type="submit" aria-label="Buscar destino">
+          <i class="fa-solid fa-route"></i>
+        </button>
+      </form>
+
+      <div class="brand-chip" aria-label="RadarMapa RJ">
+        <span>RJ</span>
+      </div>
+    </header>
+
+    <!-- Ações flutuantes -->
+    <div class="floating-actions" aria-label="Ações rápidas do mapa">
+      <button id="btnLocateUser" class="fab" type="button" aria-label="Usar minha localização">
+        <i class="fa-solid fa-location-crosshairs"></i>
+      </button>
+
+      <button id="btnFitVisible" class="fab" type="button" aria-label="Centralizar radares visíveis">
+        <i class="fa-solid fa-maximize"></i>
+      </button>
+
+      <button id="btnTogglePanel" class="fab fab-primary" type="button" aria-label="Abrir painel de filtros">
+        <i class="fa-solid fa-layer-group"></i>
+        <span id="filterBadge" class="badge" aria-label="Filtros ativos">0</span>
+      </button>
+    </div>
+
+    <!-- Resumo da rota -->
+    <aside id="routeSummary" class="route-summary" aria-label="Resumo da rota" aria-hidden="true">
+      <div class="route-summary-header">
+        <div>
+          <p class="eyebrow">Rota calculada</p>
+          <h2 id="routeTitle">Destino definido</h2>
+        </div>
+        <button id="btnClearRoute" class="icon-button subtle" type="button" aria-label="Limpar rota">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="route-metrics">
+        <div>
+          <span>Distância</span>
+          <strong id="routeDistance">--</strong>
+        </div>
+        <div>
+          <span>Tempo</span>
+          <strong id="routeDuration">--</strong>
+        </div>
+        <div>
+          <span>Radares</span>
+          <strong id="routeRadarCount">--</strong>
+        </div>
+      </div>
+
+      <div class="route-breakdown" aria-label="Resumo dos radares próximos da rota">
+        <div>
+          <span>Ativos</span>
+          <strong id="routeActiveCount">0</strong>
+        </div>
+        <div>
+          <span>Inativos</span>
+          <strong id="routeInactiveCount">0</strong>
+        </div>
+        <div>
+          <span>Fixos</span>
+          <strong id="routeFixedCount">0</strong>
+        </div>
+        <div>
+          <span>Portáteis</span>
+          <strong id="routePortableCount">0</strong>
+        </div>
+      </div>
+
+      <div class="route-list-wrap">
+        <div class="route-list-header">
+          <strong>Radares mais próximos da rota</strong>
+          <span id="routeBufferLabel">até 300 m</span>
+        </div>
+        <ol id="routeRadarList" class="route-radar-list">
+          <li class="empty-list">Calcule uma rota para listar os radares próximos.</li>
+        </ol>
+      </div>
+
+      <div id="navigationStatus" class="navigation-status" aria-live="polite">
+        <div class="navigation-status-icon">
+          <i class="fa-solid fa-location-arrow"></i>
+        </div>
+        <div>
+          <strong id="navigationStatusTitle">Navegação parada</strong>
+          <span id="navigationStatusText">Calcule uma rota e toque em “Iniciar rota”.</span>
+        </div>
+      </div>
+
+      <div class="route-action-grid">
+        <button id="btnStartNavigation" class="route-action" type="button">
+          <i class="fa-solid fa-play"></i>
+          Iniciar rota
+        </button>
+
+        <button id="btnStopNavigation" class="route-action danger" type="button" disabled>
+          <i class="fa-solid fa-stop"></i>
+          Parar
+        </button>
+      </div>
+
+      <button id="btnShowRouteRadars" class="route-action secondary" type="button">
+        <i class="fa-solid fa-bullseye"></i>
+        Mostrar apenas radares da rota
+      </button>
+    </aside>
+
+    <!-- Legenda -->
+    <aside class="legend-card" aria-label="Legenda do mapa">
+      <div class="legend-title">Legenda</div>
+      <div class="legend-row">
+        <span class="legend-dot active"></span>
+        <span>Ativo</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-dot inactive"></span>
+        <span>Inativo</span>
+      </div>
+      <div class="legend-row">
+        <span class="legend-dot route"></span>
+        <span>Na rota</span>
+      </div>
+      <div class="legend-row">
+        <i class="fa-solid fa-video legend-icon"></i>
+        <span>Fixo</span>
+      </div>
+      <div class="legend-row">
+        <i class="fa-solid fa-camera legend-icon"></i>
+        <span>Portátil</span>
+      </div>
+    </aside>
+
+    <!-- Painel de filtros -->
+    <aside id="filterPanel" class="filter-panel" aria-label="Painel de filtros" aria-hidden="true">
+      <div class="panel-handle" aria-hidden="true"></div>
+
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">RadarMapa RJ</p>
+          <h1>Filtros do mapa</h1>
+          <p class="panel-subtitle">
+            Exibindo <strong id="visibleCount">0</strong> de <strong id="totalCount">0</strong> radares.
+          </p>
+        </div>
+
+        <button id="btnClosePanel" class="icon-button subtle" type="button" aria-label="Fechar filtros">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="panel-content">
+        <section class="filter-section" aria-labelledby="sectionStatus">
+          <div class="section-title-row">
+            <h2 id="sectionStatus">Status</h2>
+            <button id="btnSelectAll" class="text-button" type="button">Mostrar tudo</button>
+          </div>
+
+          <div class="toggle-grid">
+            <label class="check-card">
+              <input type="checkbox" class="filter-status" value="ativo" checked />
+              <span class="check-card-icon status-active"><i class="fa-solid fa-circle-check"></i></span>
+              <span>
+                <strong>Ativos</strong>
+                <small>em operação</small>
+              </span>
+            </label>
+
+            <label class="check-card">
+              <input type="checkbox" class="filter-status" value="inativo" checked />
+              <span class="check-card-icon status-inactive"><i class="fa-solid fa-circle-xmark"></i></span>
+              <span>
+                <strong>Inativos</strong>
+                <small>fora de operação</small>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="filter-section" aria-labelledby="sectionType">
+          <h2 id="sectionType">Tipo de radar</h2>
+
+          <div class="toggle-grid">
+            <label class="check-card">
+              <input type="checkbox" class="filter-type" value="fixo" checked />
+              <span class="check-card-icon type-fixed"><i class="fa-solid fa-video"></i></span>
+              <span>
+                <strong>Fixos</strong>
+                <small>pontos instalados</small>
+              </span>
+            </label>
+
+            <label class="check-card">
+              <input type="checkbox" class="filter-type" value="portatil" checked />
+              <span class="check-card-icon type-portable"><i class="fa-solid fa-camera"></i></span>
+              <span>
+                <strong>Portáteis</strong>
+                <small>pontos móveis</small>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="filter-section" aria-labelledby="sectionLocation">
+          <h2 id="sectionLocation">Localização</h2>
+
+          <div class="field-group">
+            <label for="filterCity">Município</label>
+            <select id="filterCity">
+              <option value="all">Todos os municípios</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="filterHighway">Rodovia</label>
+            <select id="filterHighway">
+              <option value="all">Todas as rodovias</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="filterInspection">Fiscalização</label>
+            <select id="filterInspection">
+              <option value="all">Todos os tipos</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="filter-section" aria-labelledby="sectionRoute">
+          <h2 id="sectionRoute">Rota</h2>
+
+          <label class="switch-row">
+            <input id="filterOnlyRoute" type="checkbox" disabled />
+            <span>
+              <strong>Mostrar apenas radares próximos da rota</strong>
+              <small>Disponível após calcular uma rota.</small>
+            </span>
+          </label>
+
+          <div class="field-group">
+            <label for="routeBuffer">Distância de análise da rota</label>
+            <select id="routeBuffer">
+              <option value="100">Até 100 m</option>
+              <option value="200">Até 200 m</option>
+              <option value="300" selected>Até 300 m</option>
+              <option value="500">Até 500 m</option>
+              <option value="800">Até 800 m</option>
+              <option value="1000">Até 1 km</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="alertDistance">Alerta sonoro de proximidade</label>
+            <select id="alertDistance">
+              <option value="150">A partir de 150 m</option>
+              <option value="300" selected>A partir de 300 m</option>
+              <option value="500">A partir de 500 m</option>
+              <option value="800">A partir de 800 m</option>
+            </select>
+          </div>
+
+          <button id="btnFocusRoute" class="secondary-action" type="button" disabled>
+            <i class="fa-solid fa-route"></i>
+            Ajustar mapa à rota
+          </button>
+        </section>
+
+        <section class="stats-card" aria-label="Resumo da base carregada">
+          <div>
+            <span class="stat-label">Ativos</span>
+            <strong id="statActive">0</strong>
+          </div>
+          <div>
+            <span class="stat-label">Inativos</span>
+            <strong id="statInactive">0</strong>
+          </div>
+          <div>
+            <span class="stat-label">Fixos</span>
+            <strong id="statFixed">0</strong>
+          </div>
+          <div>
+            <span class="stat-label">Portáteis</span>
+            <strong id="statPortable">0</strong>
+          </div>
+        </section>
+      </div>
+
+      <footer class="panel-footer">
+        <p>
+          Dados com base pública no DER-RJ, tratados em planilha própria para fins informativos e educativos.
+          A sinalização viária local sempre prevalece.
+        </p>
+        <div class="footer-actions">
+          <a
+            href="https://docs.google.com/spreadsheets/d/14ilHut0E_9GuvmPBRIHmFcnKtmymUZAAMWoER871W-4/edit?usp=sharing"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Ver planilha-base</a>
+          <button id="btnOpenAbout" class="footer-link-button" type="button">Sobre e fontes</button>
+          <button id="btnOpenPrivacy" class="footer-link-button" type="button">Privacidade</button>
+        </div>
+      </footer>
+    </aside>
+
+    <aside id="installBanner" class="install-banner" aria-label="Instalar aplicativo" hidden>
+      <div>
+        <strong>Instalar RadarMapa RJ</strong>
+        <span>Adicione à tela inicial para acesso rápido.</span>
+      </div>
+      <div class="install-actions">
+        <button id="btnInstallApp" type="button">Instalar</button>
+        <button id="btnDismissInstall" type="button" aria-label="Fechar sugestão de instalação"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </aside>
+
+    <div id="infoModal" class="modal-backdrop" hidden>
+      <section class="info-modal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+        <header class="info-modal-header">
+          <div>
+            <p class="eyebrow" id="infoModalEyebrow">RadarMapa RJ</p>
+            <h2 id="infoModalTitle">Sobre o aplicativo</h2>
+          </div>
+          <button id="btnCloseInfoModal" class="icon-button subtle" type="button" aria-label="Fechar janela"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div id="infoModalBody" class="info-modal-body"></div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite">
+      <i id="toastIcon" class="fa-solid fa-circle-info" aria-hidden="true"></i>
+      <span id="toastMessage">Mensagem</span>
+    </div>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    crossorigin="">
+  </script>
+
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"
+    referrerpolicy="no-referrer">
+  </script>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"
+    referrerpolicy="no-referrer">
+  </script>
+
+  <script src="app.js?v=4.0.0"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "RadarMapa RJ — Rotas e Radares DER-RJ",
+  "short_name": "RadarMapa RJ",
+  "description": "Mapa informativo de radares fixos e portáteis do DER-RJ com rotas, GPS e alertas de proximidade.",
+  "lang": "pt-BR",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["navigation", "maps", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
