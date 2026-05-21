@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="RadarMapa RJ: mapa informativo de radares fixos e portáteis do DER-RJ com base em dados públicos tratados." />
+  <title>RadarMapa RJ — DER-RJ</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="style.css?v=1.0.0" />
+</head>
+
+<body>
+  <noscript>
+    <div class="noscript">Para usar o RadarMapa RJ, ative o JavaScript no navegador.</div>
+  </noscript>
+
+  <div id="loadingOverlay" class="loading-overlay" role="status" aria-live="polite">
+    <div class="loading-card">
+      <div class="loader" aria-hidden="true"></div>
+      <strong>RadarMapa RJ</strong>
+      <span>Carregando base de dados do DER-RJ...</span>
+    </div>
+  </div>
+
+  <main class="app-shell" aria-label="RadarMapa RJ">
+    <section id="map" class="map" aria-label="Mapa com radares do DER-RJ"></section>
+
+    <header class="topbar" aria-label="Barra principal">
+      <button id="btnOpenPanel" class="icon-button" type="button" aria-label="Abrir filtros">
+        <i class="fa-solid fa-sliders"></i>
+      </button>
+
+      <form id="quickSearchForm" class="search-box" autocomplete="off">
+        <label for="quickSearchInput" class="sr-only">Buscar radar por município, localidade ou rodovia</label>
+        <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+        <input id="quickSearchInput" type="search" placeholder="Buscar município, rodovia ou localidade..." inputmode="search" />
+        <button id="btnClearSearch" class="clear-search" type="button" aria-label="Limpar busca">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </form>
+
+      <div class="brand-chip" aria-label="RadarMapa RJ"><span>RJ</span></div>
+    </header>
+
+    <div class="floating-actions" aria-label="Ações rápidas do mapa">
+      <button id="btnFitRJ" class="fab" type="button" aria-label="Centralizar radares no mapa">
+        <i class="fa-solid fa-location-crosshairs"></i>
+      </button>
+      <button id="btnTogglePanel" class="fab fab-primary" type="button" aria-label="Abrir painel de filtros">
+        <i class="fa-solid fa-layer-group"></i>
+        <span id="filterBadge" class="badge" aria-label="Filtros ativos">0</span>
+      </button>
+    </div>
+
+    <aside class="legend-card" aria-label="Legenda do mapa">
+      <div class="legend-title">Legenda</div>
+      <div class="legend-row"><span class="legend-dot active"></span><span>Ativo</span></div>
+      <div class="legend-row"><span class="legend-dot inactive"></span><span>Inativo</span></div>
+      <div class="legend-row"><i class="fa-solid fa-video legend-icon"></i><span>Fixo</span></div>
+      <div class="legend-row"><i class="fa-solid fa-camera legend-icon"></i><span>Portátil</span></div>
+    </aside>
+
+    <aside id="filterPanel" class="filter-panel" aria-label="Painel de filtros" aria-hidden="true">
+      <div class="panel-handle" aria-hidden="true"></div>
+
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">RadarMapa RJ</p>
+          <h1>Filtros do mapa</h1>
+          <p class="panel-subtitle">Exibindo <strong id="visibleCount">0</strong> de <strong id="totalCount">0</strong> radares.</p>
+        </div>
+
+        <button id="btnClosePanel" class="icon-button subtle" type="button" aria-label="Fechar filtros">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="panel-content">
+        <section class="filter-section" aria-labelledby="sectionStatus">
+          <div class="section-title-row">
+            <h2 id="sectionStatus">Status</h2>
+            <button id="btnSelectAll" class="text-button" type="button">Mostrar tudo</button>
+          </div>
+
+          <div class="toggle-grid">
+            <label class="check-card">
+              <input type="checkbox" class="filter-status" value="ativo" checked />
+              <span class="check-card-icon status-active"><i class="fa-solid fa-circle-check"></i></span>
+              <span><strong>Ativos</strong><small>em operação</small></span>
+            </label>
+
+            <label class="check-card">
+              <input type="checkbox" class="filter-status" value="inativo" checked />
+              <span class="check-card-icon status-inactive"><i class="fa-solid fa-circle-xmark"></i></span>
+              <span><strong>Inativos</strong><small>fora de operação</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="filter-section" aria-labelledby="sectionType">
+          <h2 id="sectionType">Tipo de radar</h2>
+
+          <div class="toggle-grid">
+            <label class="check-card">
+              <input type="checkbox" class="filter-type" value="fixo" checked />
+              <span class="check-card-icon type-fixed"><i class="fa-solid fa-video"></i></span>
+              <span><strong>Fixos</strong><small>pontos instalados</small></span>
+            </label>
+
+            <label class="check-card">
+              <input type="checkbox" class="filter-type" value="portatil" checked />
+              <span class="check-card-icon type-portable"><i class="fa-solid fa-camera"></i></span>
+              <span><strong>Portáteis</strong><small>pontos móveis</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="filter-section" aria-labelledby="sectionLocation">
+          <h2 id="sectionLocation">Localização</h2>
+
+          <div class="field-group">
+            <label for="filterCity">Município</label>
+            <select id="filterCity"><option value="all">Todos os municípios</option></select>
+          </div>
+
+          <div class="field-group">
+            <label for="filterHighway">Rodovia</label>
+            <select id="filterHighway"><option value="all">Todas as rodovias</option></select>
+          </div>
+
+          <div class="field-group">
+            <label for="filterInspection">Fiscalização</label>
+            <select id="filterInspection"><option value="all">Todos os tipos</option></select>
+          </div>
+        </section>
+
+        <section class="stats-card" aria-label="Resumo da base carregada">
+          <div><span class="stat-label">Ativos</span><strong id="statActive">0</strong></div>
+          <div><span class="stat-label">Inativos</span><strong id="statInactive">0</strong></div>
+          <div><span class="stat-label">Fixos</span><strong id="statFixed">0</strong></div>
+          <div><span class="stat-label">Portáteis</span><strong id="statPortable">0</strong></div>
+        </section>
+      </div>
+
+      <footer class="panel-footer">
+        <p>Dados com base pública no DER-RJ, tratados em planilha própria para fins informativos e educativos.</p>
+        <a href="https://docs.google.com/spreadsheets/d/14ilHut0E_9GuvmPBRIHmFcnKtmymUZAAMWoER871W-4/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Ver planilha-base</a>
+      </footer>
+    </aside>
+
+    <div id="toast" class="toast" role="status" aria-live="polite">
+      <i id="toastIcon" class="fa-solid fa-circle-info" aria-hidden="true"></i>
+      <span id="toastMessage">Mensagem</span>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" referrerpolicy="no-referrer"></script>
+  <script src="app.js?v=1.0.0"></script>
+</body>
+</html>
